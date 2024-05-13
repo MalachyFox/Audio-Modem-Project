@@ -120,9 +120,10 @@ def split_bytes(some_bytes):
     size = int(bytes(output[1]))
     data = bytes(output[2])
 
-    print(f"Filename: {filename}, size: {size}")
+    print(f"filename: {filename}, size: {size}")
 
     return filename, size, data
+
 
 
     
