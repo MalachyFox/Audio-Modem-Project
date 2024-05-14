@@ -18,9 +18,9 @@ def encode(tG, v):
 
     return x
 
-def ldpc_encode(n, d_v, d_c, message, SNR):
+def ldpc_encode(n, d_v, d_c, message):
     H, G = make_ldpc(n, d_v, d_c)
-    encoded_message = encode(G, message, SNR)
+    encoded_message = encode(G, message)
 
     return encoded_message
 
