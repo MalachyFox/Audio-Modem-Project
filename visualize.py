@@ -1,18 +1,18 @@
-import csv
 from multiprocessing import Value
 import numpy as np
 import matplotlib.pyplot as plt
-from graycode import tc_to_gray_code as gray
-import datetime
 
 def plot_channel(channel):
     plt.stem(range(len(channel)),channel)
     plt.show()
 
-def plot_fft(fft):
+def plot_fft(fft,fs):
+    n_samples = len(fft)
+    dur = n_samples/fs
+    x = np.linspace(0,fs,n_samples)
     fig, ax = plt.subplots(2)
-    ax[0].plot(np.absolute(fft))
-    ax[1].scatter(range(len(fft)),np.angle(fft))
+    ax[0].plot(x,np.absolute(fft))
+    ax[1].scatter(x,range(len(fft)),np.angle(fft))
     plt.show()
 
 def plot_constellation(fft):
