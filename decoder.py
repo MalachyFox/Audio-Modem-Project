@@ -1,22 +1,23 @@
-import csv
-from multiprocessing import Value
 import numpy as np
 import matplotlib.pyplot as plt
 from graycode import tc_to_gray_code as gray
 import datetime
-
-
+import sys
+import os
 
 def signal_to_blocks(r_sig, N, pref_len):
     print("converting signal to blocks")
+    block_len = N + pref_len
 
     r_sig_len = len(r_sig)
     print(r_sig_len,"datapoints")
-    N_blocks = int(r_sig_len / (pref_len + N))
+    N_blocks = int(r_sig_len / block_len)
     print(N_blocks,"blocks")
 
-    blocks = np.array_split(r_sig,N_blocks)
-
+    blocks = []
+    for i in range(N_blocks):
+        blocks.append(r_sig[i*block_len:(i+1)*block_len])
+    
     blocks_trimmed =  np.array([block[pref_len:] for block in blocks])
     return blocks_trimmed
 
@@ -57,7 +58,7 @@ def divide_ffts(blocks_fft, channel_fft):
 
 
 
-def blocks_to_bytes(blocks_adj_fft,M):
+def blocks_to_bytes(blocks_adj_fft,M=4):
     print("starting decode...")
 
     blocks_phase = np.array([np.angle(block)[1:] for block in blocks_adj_fft])
@@ -116,25 +117,48 @@ def split_bytes(some_bytes):
             i+=1
         else:
             output[i].append(b)
-    filename = str(bytes(output[0]),encoding='utf8').split('/')[1]
+    filename = str(bytes(output[0]),encoding='utf8',errors='ignore').split('/')[1]
+    
     size = int(bytes(output[1]))
-    data = bytes(output[2])
+
+    data = bytes(output[2][:size])
 
     print(f"filename: {filename}, size: {size}")
 
     return filename, size, data
 
 
+def sync_signal(r_sig,N,channel_fft,pref_len,first_bytes):
+    i = 0
+    for start_index in range(int(pref_len),10000):
 
+        sys.stdout = open(os.devnull, 'w')
+        block = r_sig[start_index:start_index+N]
+        block_fft = blocks_to_fft([block],N)
+        blocks_fft_adj = divide_ffts(block_fft,channel_fft)
+        output = blocks_to_bytes(blocks_fft_adj)
+        sys.stdout = sys.__stdout__
+
+        with open(first_bytes, "rb") as check_file:
+            check = check_file.read()
+
+        if output == check:
+            print("FOUND SYNC:",i)
+            return r_sig[i:]
+        i+=1
+    print("SYNC FAILURE")
     
-
-
-
-
-
     
-
-
+def decode(r_sig_path,channel_path,pref_len,N,M):
+    r_sig = np.genfromtxt(r_sig_path)
+    channel = np.genfromtxt(channel_path)
+    blocks_trimmed = signal_to_blocks(r_sig,N,pref_len)
+    channel_fft = channel_to_fft(channel, N, pref_len)
+    blocks_fft = blocks_to_fft(blocks_trimmed, N)
+    blocks_fft_adj = divide_ffts(blocks_fft,channel_fft)
+    output = blocks_to_bytes(blocks_fft_adj,M)
+    filename, size, data = split_bytes(output)
+    return output
 
 
 
