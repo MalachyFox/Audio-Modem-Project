@@ -23,3 +23,4 @@ plt.plot(recording)
 plt.show()
 #plt.plot(np.absolute(fftr))
 visualize.plot_fft(fftr)
+

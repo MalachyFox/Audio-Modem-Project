@@ -3,6 +3,7 @@ import numpy as np
 from scipy.signal import chirp
 import visualize
 import matplotlib.pyplot as plt
+import csv
 
 fs = 44100
 
@@ -21,16 +22,29 @@ def play_chirp(f0,f1,fs,duration):
     sd.wait()
     return transmitted_signal
 
+def generate_sync(fs):
+    signal = np.random.random(1000) * 2 - 1
+    sd.play(signal, samplerate=fs)
+    sd.wait()
+    with open("sync.csv", "w") as file:
+        csv_writer = csv.writer(file)
+        csv_writer.writerow(signal)
+    return signal
+
 input = input("press enter")
 #signal = play_tone(2000,fs,10)
-signal = play_chirp(2000,5000,fs,2)
+#signal = play_chirp(20,20000,fs,10)
 
 # Generate linear chirp signal
- #
 
-chirp_fft = np.fft.fft(signal)
+signal = generate_sync(fs)
 
-visualize.plot_fft(chirp_fft,fs)
+fft = np.fft.fft(signal)
 
-def generate_sync(f_start, f_stop, amplitude):
-    return
+visualize.plot_fft(fft,fs)
+
+
+
+
+
+
