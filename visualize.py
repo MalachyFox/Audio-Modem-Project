@@ -1,9 +1,6 @@
-import csv
 from multiprocessing import Value
 import numpy as np
 import matplotlib.pyplot as plt
-from graycode import tc_to_gray_code as gray
-import datetime
 
 def plot_channel(channel):
     plt.stem(range(len(channel)),channel)

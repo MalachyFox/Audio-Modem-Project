@@ -1,8 +1,4 @@
-import sounddevice as sd
-
-from ctypes.util import find_library
-find_library('portaudio')
-                                                   
+import sounddevice as sd                    
 
 import matplotlib.pyplot as plt
 seconds = 5

@@ -1,6 +1,8 @@
 import sounddevice as sd
 import numpy as np
 from scipy.signal import chirp
+import visualize
+import matplotlib.pyplot as plt
 
 # Parameters
 duration = 1.0  # Duration of the chirp signal in seconds
@@ -12,5 +14,13 @@ t = np.linspace(0, duration, int(fs * duration))  # Time array
 # Generate linear chirp signal
 transmitted_signal = chirp(t, f0, duration, f1, method='linear')
 
+chirp_fft = np.fft.fft(transmitted_signal)
+visualize.plot_fft(chirp_fft[:f1*2])
+
+plt.show()
+
 sd.play(transmitted_signal, samplerate=fs)
 sd.wait()
+
+def generate_sync(f_start, f_stop, amplitude):
+    return
