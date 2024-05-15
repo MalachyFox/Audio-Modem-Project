@@ -22,7 +22,7 @@ def play_chirp(f0,f1,fs,duration):
     sd.wait()
     return transmitted_signal
 
-def generate_sync(fs):
+def save_sync(fs):
     signal = np.random.random(10000) * 2 - 1
     sd.play(signal, samplerate=fs)
     sd.wait()
@@ -42,7 +42,7 @@ sd.wait()
 
 # Generate linear chirp signal
 
-# signal = generate_sync(fs)
+# signal = save_sync(fs)
 
 fft = np.fft.fft(signal)
 
