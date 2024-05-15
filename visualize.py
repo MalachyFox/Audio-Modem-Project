@@ -12,7 +12,7 @@ def plot_fft(fft,fs):
     x = np.linspace(0,fs,n_samples)
     fig, ax = plt.subplots(2)
     ax[0].plot(x,np.absolute(fft))
-    ax[1].scatter(x,np.angle(fft))
+    ax[1].plot(x,np.angle(fft))
     plt.show()
 
 def plot_constellation(fft):

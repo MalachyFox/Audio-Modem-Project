@@ -39,24 +39,24 @@ def load_signal(filename):
     return signal
 
 
-signal = gen_chirp(2000,5000,fs,2)
+# signal = gen_chirp(2000,5000,fs,2)
 
-save_signal(signal,'sync-chirp-low.csv')
-play_signal(signal,fs)
-
-
+# save_signal(signal,'sync-chirp-low.csv')
+# play_signal(signal,fs)
 
 
-#signal = play_tone(2000,fs,10)
-#signal = play_chirp(20,20000,fs,10)
 
-# Generate linear chirp signal
 
-# signal = save_sync(fs)
+# #signal = play_tone(2000,fs,10)
+# #signal = play_chirp(20,20000,fs,10)
 
-fft = np.fft.fft(signal)
+# # Generate linear chirp signal
 
-visualize.plot_fft(fft,fs)
+# # signal = save_sync(fs)
+
+# fft = np.fft.fft(signal)
+
+# visualize.plot_fft(fft,fs)
 
 
 
