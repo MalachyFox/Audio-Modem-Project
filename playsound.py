@@ -38,10 +38,18 @@ def load_signal(filename):
     signal = np.genfromtxt(filename,delimiter=',')
     return signal
 
+def super_sine(f_array, fs,duration):
+    t = np.arange(duration * fs)
+    transmitted_signal = np.zeros(len(t))
+    for f in f_array:
+        transmitted_signal += np.sin(2 * np.pi * t * f / fs)
+    return transmitted_signal
 
-signal = gen_chirp(2000,5000,fs,2)
 
-save_signal(signal,'sync-chirp-low.csv')
+#signal = gen_chirp( 500,1500,fs,1)
+signal = super_sine([500,1000,1500,2000],fs,1)
+
+#save_signal(signal,'sync-chirp-low.csv')
 play_signal(signal,fs)
 
 
@@ -54,9 +62,9 @@ play_signal(signal,fs)
 
 # signal = save_sync(fs)
 
-fft = np.fft.fft(signal)
+#fft = np.fft.fft(signal)
 
-visualize.plot_fft(fft,fs)
+#visualize.plot_fft(fft,fs)
 
 
 
