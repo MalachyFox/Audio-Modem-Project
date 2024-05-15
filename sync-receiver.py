@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 seconds = 3
 fs = 44100
 
-sync = playsound.gen_chirp(500,1500,fs,1)
+sync = playsound.super_sine([500,1000,1500,2000],fs,1)
+#sync = playsound.gen_chirp(500,1500,fs,1)
 #playsound.save_signal(signal,'sync-chirp-low-long')
 
 input = input('press space')
@@ -41,8 +42,8 @@ plt.show()
 visualize.plot_fft(ffts, fs)
 visualize.plot_fft(fftr, fs)
 
-f0 = 500
-f1 = 1500
+f0 = 400
+f1 = 2100
 print(len(fftr),len(ffts))
 
 channel = fftr[f0:f1] / ffts[f0:f1]

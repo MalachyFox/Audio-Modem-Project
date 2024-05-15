@@ -46,11 +46,11 @@ def super_sine(f_array, fs,duration):
     return transmitted_signal
 
 
-#signal = gen_chirp( 500,1500,fs,1)
-signal = super_sine([500,1000,1500,2000],fs,1)
+# #signal = gen_chirp( 500,1500,fs,1)
+# signal = super_sine([500,1000,1500,2000],fs,1)
 
-#save_signal(signal,'sync-chirp-low.csv')
-play_signal(signal,fs)
+# #save_signal(signal,'sync-chirp-low.csv')
+# play_signal(signal,fs)
 
 
 
