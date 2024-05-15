@@ -26,16 +26,28 @@ sync = np.genfromtxt('sync-chirp.csv', delimiter=',')
 correlation = scipy.signal.correlate(recording, sync)
 
 peak_correlation = np.max(correlation)
-position = int(np.where(correlation ==peak_correlation)[0])
+position = int(np.where(correlation ==peak_correlation)[0]) - len(sync)
 print("position:", position)
 print(len(sync))
 chirp = recording[position:position+len(sync)]
 fftr = np.fft.fft(chirp)
+ffts = np.fft.fft(sync)
 
-plt.plot(correlation)
+# plt.plot(correlation)
+# plt.show()
+visualize.plot_fft(ffts, fs)
+visualize.plot_fft(fftr, fs)
+
+channel = fftr[10000:15000] / ffts[10000:15000]
+visualize.plot_fft(channel, fs)
+
+impulse = np.fft.ifft(fftr/ffts)
+plt.plot(impulse)
 plt.show()
 
-visualize.plot_fft(fftr, fs)
+
+
+
 
 
 #print(recording)
