@@ -39,9 +39,9 @@ def load_signal(filename):
     return signal
 
 
-signal = gen_chirp(10000,15000,fs,2)
+signal = gen_chirp(2000,5000,fs,2)
 
-save_signal(signal,'sync-chirp.csv')
+save_signal(signal,'sync-chirp-low.csv')
 play_signal(signal,fs)
 
 
