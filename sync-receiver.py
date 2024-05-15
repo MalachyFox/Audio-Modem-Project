@@ -18,7 +18,7 @@ recording = recording.flatten()
 #print(type(recording))
 #print(np.shape(recording))
 
-sync = np.genfromtxt('sync.csv', delimiter=',')
+sync = np.genfromtxt('sync-chirp.csv', delimiter=',')
 #print(type(sync))
 #print(sync)
 
