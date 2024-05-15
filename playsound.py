@@ -56,12 +56,12 @@ play_signal(signal,fs)
 
 
 
-#signal = play_tone(2000,fs,10)
-#signal = play_chirp(20,20000,fs,10)
+# #signal = play_tone(2000,fs,10)
+# #signal = play_chirp(20,20000,fs,10)
 
-# Generate linear chirp signal
+# # Generate linear chirp signal
 
-# signal = save_sync(fs)
+# # signal = save_sync(fs)
 
 #fft = np.fft.fft(signal)
 

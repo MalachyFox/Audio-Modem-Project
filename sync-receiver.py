@@ -2,14 +2,17 @@ import sounddevice as sd
 import visualize
 import numpy as np
 import scipy.signal
-
+import playsound
 from ctypes.util import find_library
 find_library('portaudio')
                                                    
 
 import matplotlib.pyplot as plt
-seconds = 4
+seconds = 3
 fs = 44100
+
+sync = playsound.gen_chirp(500,1500,fs,1)
+#playsound.save_signal(signal,'sync-chirp-low-long')
 
 input = input('press space')
 recording = sd.rec(fs * seconds,samplerate = fs,channels=1)
@@ -18,7 +21,7 @@ recording = recording.flatten()
 #print(type(recording))
 #print(np.shape(recording))
 
-sync = np.genfromtxt('sync-chirp.csv', delimiter=',')
+#sync = np.genfromtxt('sync-chirp-low.csv', delimiter=',')
 #print(type(sync))
 #print(sync)
 
@@ -33,12 +36,16 @@ chirp = recording[position:position+len(sync)]
 fftr = np.fft.fft(chirp)
 ffts = np.fft.fft(sync)
 
-# plt.plot(correlation)
-# plt.show()
+plt.plot(correlation)
+plt.show()
 visualize.plot_fft(ffts, fs)
 visualize.plot_fft(fftr, fs)
 
-channel = fftr[10000:15000] / ffts[10000:15000]
+f0 = 500
+f1 = 1500
+print(len(fftr),len(ffts))
+
+channel = fftr[f0:f1] / ffts[f0:f1]
 visualize.plot_fft(channel, fs)
 
 impulse = np.fft.ifft(fftr/ffts)
