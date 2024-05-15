@@ -25,11 +25,19 @@ sync = np.genfromtxt('sync.csv', delimiter=',')
 #sync = np.pad(sync, (0,len(recording)-len(sync)))
 correlation = scipy.signal.correlate(recording, sync)
 
+peak_correlation = np.max(correlation)
+position = np.where(correlation ==peak_correlation)
+print("position:", position)
+print(len(sync))
+chirp = recording[position:position+len(sync)]
+fftr = np.fft.fft(chirp)
+
 plt.plot(correlation)
 plt.show()
 
+visualize.plot_fft(fftr, fs)
 
-fftr = np.fft.fft(recording)
+
 #print(recording)
 #print(fftr)
 #plt.plot(recording)
