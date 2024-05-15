@@ -39,16 +39,17 @@ def load_signal(filename):
     return signal
 
 def super_sine(f_array, fs,duration):
+    print(f_array)
     t = np.arange(duration * fs)
     transmitted_signal = np.zeros(len(t))
     for f in f_array:
         transmitted_signal += np.sin(2 * np.pi * t * f / fs)
-    return transmitted_signal
+    return transmitted_signal/len(f_array)
 
 
 #signal = gen_chirp( 500,1500,fs,1)
-signal = super_sine([500,1000,1500,2000],fs,1)
-
+signal = super_sine(np.linspace(500,1000,50),fs,2)
+print(signal[100:200])
 #save_signal(signal,'sync-chirp-low.csv')
 play_signal(signal,fs)
 
