@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 seconds = 3
 fs = 44100
 
-sync = playsound.super_sine([500,1000,1500,2000],fs,1)
+sync = playsound.super_sine(np.linspace(500,1000,50),fs,2)
 #sync = playsound.gen_chirp(500,1500,fs,1)
 #playsound.save_signal(signal,'sync-chirp-low-long')
 
