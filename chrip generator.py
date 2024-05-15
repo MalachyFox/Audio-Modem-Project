@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import soundfile as sf
 
 # Parameters
-duration = 1  # Duration of the chirp signal in seconds
+duration =   # Duration of the chirp signal in seconds
 f0 = 100  # Initial frequency of the chirp in Hz
 f1 = 1000  # Final frequency of the chirp in Hz
 fs = 44100  # Sampling frequency
