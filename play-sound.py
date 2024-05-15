@@ -30,7 +30,7 @@ def save_signal(signal,filename):
     return
 
 def play_signal(signal,fs):
-    input = input("press enter to play")
+    input("press enter to play")
     sd.play(signal,fs)
     sd.wait()
 
@@ -39,7 +39,7 @@ def load_signal(filename):
     return signal
 
 
-signal = chirp(10000,15000,fs,2)
+signal = gen_chirp(10000,15000,fs,2)
 
 save_signal(signal,'sync-chirp.csv')
 play_signal(signal,fs)
