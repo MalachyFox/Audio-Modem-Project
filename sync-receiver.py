@@ -26,7 +26,7 @@ sync = np.genfromtxt('sync.csv', delimiter=',')
 correlation = scipy.signal.correlate(recording, sync)
 
 peak_correlation = np.max(correlation)
-position = np.where(correlation ==peak_correlation)
+position = np.where(correlation ==peak_correlation) - len(sync)
 print("position:", position)
 print(len(sync))
 chirp = recording[position:position+len(sync)]
