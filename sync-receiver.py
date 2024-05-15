@@ -18,14 +18,14 @@ recording = recording.flatten()
 #print(type(recording))
 #print(np.shape(recording))
 
-sync = np.genfromtxt('sync.csv', delimiter=',')
+sync = np.genfromtxt('sync-chirp.csv', delimiter=',')
 #print(type(sync))
 #print(sync)
 
 #sync = np.pad(sync, (0,len(recording)-len(sync)))
 correlation = scipy.signal.correlate(recording, sync)
 
-plt.plot(correlation)
+plt.plot(np.absolute(correlation))
 plt.show()
 
 
