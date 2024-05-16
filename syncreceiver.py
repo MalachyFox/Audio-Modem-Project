@@ -50,6 +50,7 @@ print(len(fftr),len(ffts))
 
 channel = fftr[f0:f1] / ffts[f0:f1]
 visualize.plot_fft(channel, fs)
+visualize.plot_constellation(channel)
 
 impulse = np.fft.ifft(fftr/ffts)
 plt.plot(impulse)

@@ -69,8 +69,9 @@ for block in blocks_fft:
     signal = np.fft.irfft(block,fs)
     dur = len(signal)/fs
     max = np.max(signal)
-    signal = signal /max
-    signal += ps.gen_sine(f0 + freqs//2,fs,dur)
+    signal = signal /max # normalise to avoid clipping
+    #signal += ps.gen_sine(f0 - 1,fs,dur)# + freqs//2,fs,dur)
+    signal = np.concatenate((signal,signal))
 
     #plt.plot(signal)
     
