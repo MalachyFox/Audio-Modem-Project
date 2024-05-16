@@ -1,24 +1,29 @@
+import bitarray
 import numpy as np
 from graycode import gray_code_to_tc
 import visualize as v
 import playsound as ps
 import random
 from matplotlib import pyplot as plt
+from bitstring import BitArray
 
 def random_binary(N):
     output = ""
     for i in range(N):
         output += str(np.random.randint(0,2))
-    return output
 
 
 
-binary = random_binary(1000)
+with open('weekend-challenge/parsed.tiff',"rb") as file:
+     file_binary = file.read()
+
+binary = BitArray(file_binary).bin[:100]
+
+#binary = random_binary(1000)
 #binary = "00011110"*125*2
 block_length = 1000
 data_block_length = block_length //2 # int(block_length /2 - 1)
 fs = 44100
-
 
 M = 4
 
@@ -68,6 +73,7 @@ for block in blocks_list:
 
 chirp = ps.gen_chirp(f0,f1,fs,1)
 chirp = ps.double_signal(chirp)
+
 transmission = []
 for block in blocks_fft:
     signal = np.fft.irfft(block,fs)
