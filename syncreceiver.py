@@ -8,11 +8,11 @@ find_library('portaudio')
                                                    
 
 import matplotlib.pyplot as plt
-seconds = 4
+seconds = 7
 fs = 44100
 
-f0 = 1000
-f1 = 2000
+f0 = 6500
+f1 = 7500
 
 sync = playsound.gen_chirp(f0,f1,fs,1)
 sync = playsound.double_signal(sync)
@@ -33,7 +33,7 @@ recording = recording.flatten()
 block_length = 1000
 
 #sync = np.pad(sync, (0,len(recording)-len(sync)))
-correlation = scipy.signal.correlate(recording, sync)
+correlation = np.absolute(scipy.signal.correlate(recording, sync))
 
 peak_correlation = np.max(correlation)
 position = int(np.where(correlation ==peak_correlation)[0]) - len(sync)
@@ -42,23 +42,23 @@ print(len(sync))
 plt.plot(recording)
 plt.show()
 chirp = recording[position + len(sync)//2 :position+len(sync)]
-plt.plot(chirp)
-plt.show()
+#plt.plot(chirp)
+#plt.show()
 fftr = np.fft.fft(chirp)
 sync1 = sync[len(sync)//2:]
-plt.plot(sync1)
-plt.show()
+#plt.plot(sync1)
+#plt.show()
 ffts = np.fft.fft(sync1)
 
-#data = recording[position+block_length:position+block_length*2]
+data = recording[position+len(sync)+block_length:position+len(sync)+block_length*2]
 
-plt.plot(correlation)
-plt.show()
+#plt.plot(correlation)
+#plt.show()
 
-vf0 = 800
-vf1 = 2200
-visualize.plot_fft(ffts, fs,vf0,vf1)
-visualize.plot_fft(fftr, fs,vf0,vf1)
+vf0 = f0-300
+vf1 = f1+300
+#visualize.plot_fft(ffts, fs,vf0,vf1)
+#visualize.plot_fft(fftr, fs,vf0,vf1)
 
 print(len(fftr),len(ffts))
 
@@ -66,11 +66,17 @@ channel = fftr / ffts#fftr[f0:f1] / ffts[f0:f1]
 channel = channel[f0:f1]
 channel = np.pad(channel,(f0,fs-f1))
 visualize.plot_fft(channel, fs,vf0,vf1)
-visualize.plot_constellation(channel)
+#visualize.plot_constellation(channel)
 
 impulse = np.fft.irfft(channel)
-plt.plot(impulse)
-plt.show()
+#plt.plot(impulse)
+#plt.show()
+
+data_fft = np.fft.rfft(data)
+print(len(data_fft))
+data_fft = data_fft/(channel[f0:f1])
+visualize.plot_fft(data_fft,fs,vf0,vf1)
+visualize.plot_constellation(data_fft)
 
 
 
