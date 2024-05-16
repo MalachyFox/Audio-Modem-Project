@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 seconds = 4
 fs = 44100
 
-f0 = 0
+f0 = 1000
 f1 = 2000
 
 sync = playsound.gen_chirp(f0,f1,fs,1)
@@ -55,7 +55,7 @@ ffts = np.fft.fft(sync1)
 plt.plot(correlation)
 plt.show()
 
-vf0 = 0
+vf0 = 800
 vf1 = 2200
 visualize.plot_fft(ffts, fs,vf0,vf1)
 visualize.plot_fft(fftr, fs,vf0,vf1)
