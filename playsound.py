@@ -43,7 +43,7 @@ def super_sine(f_array, fs,duration):
     t = np.arange(duration * fs)
     transmitted_signal = np.zeros(len(t))
     for f in f_array:
-        transmitted_signal += np.cos(2 * np.pi * t * f / fs)
+        transmitted_signal += np.sine(2 * np.pi * t * f / fs)
     return transmitted_signal/len(f_array)
 
 def double_signal(signal):

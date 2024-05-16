@@ -17,8 +17,9 @@ def random_binary(N):
 with open('weekend-challenge/parsed.tiff',"rb") as file:
      file_binary = file.read()
 
-binary = BitArray(file_binary).bin[:100]
+binary = BitArray(file_binary).bin
 
+#print(binary[:20])
 #binary = random_binary(1000)
 #binary = "00011110"*125*2
 block_length = 1000
@@ -29,7 +30,7 @@ M = 4
 
 m = int(np.log2(M))
 one = int(len(binary)%m)
-binary = binary +  (m - one)%m * "0" # makes sure binary can be divide into M array
+binary = binary +  (m - one)%m * "0" # makes sure binary can be divided into values
 two = len(binary)//m%data_block_length
 binary = binary +  (data_block_length - two)%(data_block_length)  *m* "0" # makes sure binary can be divided into blocks
 
@@ -41,7 +42,7 @@ phase_list = []
 for value in binary_list:
     #print(value)
     b_int = gray_code_to_tc(int(value,2))
-    b_phase = (b_int + 0.5)*2*np.pi /M
+    b_phase = (b_int)*2*np.pi /M    #b_int + 0.5? ??
     if b_phase > np.pi:
         b_phase = -(2*np.pi - b_phase)
     phase_list.append(b_phase)

@@ -14,7 +14,7 @@ def plot_fft(fft,fs,f0,f1):
     fft = fft[int(f0*dur):int(f1*dur)]
     fig, ax = plt.subplots(4)
     #ax[0].plot(x,np.log10(np.absolute(fft)))
-    ax[0].plot(x,np.absolute(fft))
+    ax[0].plot(x,np.log(np.absolute(fft)))
     ax[1].plot(x,np.absolute(fft))
     ax[2].plot(x,np.angle(fft))
     ax[3].scatter(x,np.angle(fft))
@@ -28,7 +28,7 @@ def plot_constellation(fft):
     plt.axhline(0, color='gray')
     plt.axvline(0, color='gray')
     plt.axis('scaled')
-    if l == inf or l==np.NaN:
+    if l == np.inf or l==np.NaN:
         l=100
     plt.ylim(-l, l)
     plt.xlim(-l, l)
