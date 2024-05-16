@@ -6,10 +6,11 @@ def plot_channel(channel):
     plt.stem(range(len(channel)),channel)
     plt.show()
 
-def plot_fft(fft,fs):
+def plot_fft(fft,fs,f0,f1):
     n_samples = len(fft)
     dur = n_samples/fs
-    x = np.linspace(0,fs,n_samples)
+    x = np.linspace(0,fs,n_samples)[f0*dur,f1*dur]
+    fft = fft[f0*dur,f1*dur]
     fig, ax = plt.subplots(4)
     ax[0].plot(x,np.log10(np.absolute(fft)))
     ax[1].plot(x,np.absolute(fft))
