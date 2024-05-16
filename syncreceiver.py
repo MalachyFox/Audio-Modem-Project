@@ -8,10 +8,14 @@ find_library('portaudio')
                                                    
 
 import matplotlib.pyplot as plt
-seconds = 3
+seconds = 4
 fs = 44100
 
-sync = playsound.super_sine(np.linspace(500,1000,50),fs,2)
+f0 = 3500
+f1 = 4500
+
+sync = playsound.gen_chrip(f0,f1,fs,1)
+sync = playsound.double_signal(sync)
 #sync = playsound.gen_chirp(500,1500,fs,1)
 #playsound.save_signal(signal,'sync-chirp-low-long')
 
@@ -33,7 +37,7 @@ peak_correlation = np.max(correlation)
 position = int(np.where(correlation ==peak_correlation)[0]) - len(sync)
 print("position:", position)
 print(len(sync))
-chirp = recording[position:position+len(sync)]
+chirp = recording[position + len(sync)/2 :position+len(sync)]
 fftr = np.fft.fft(chirp)
 ffts = np.fft.fft(sync)
 
@@ -42,8 +46,6 @@ plt.show()
 visualize.plot_fft(ffts, fs)
 visualize.plot_fft(fftr, fs)
 
-f0 = 400
-f1 = 2100
 print(len(fftr),len(ffts))
 
 channel = fftr[f0:f1] / ffts[f0:f1]
