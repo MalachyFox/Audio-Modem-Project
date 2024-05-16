@@ -43,7 +43,8 @@ plt.plot(recording)
 plt.show()
 chirp = recording[position + len(sync)//2 :position+len(sync)]
 fftr = np.fft.fft(chirp)
-ffts = np.fft.fft(sync)
+sync1 = sync[len(sync)//2:]
+ffts = np.fft.fft(sync1)
 
 #data = recording[position+block_length:position+block_length*2]
 
