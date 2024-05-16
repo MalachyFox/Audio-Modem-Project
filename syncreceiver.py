@@ -8,7 +8,7 @@ find_library('portaudio')
                                                    
 
 import matplotlib.pyplot as plt
-seconds = 6
+seconds = 4
 fs = 44100
 
 f0 = 1000
