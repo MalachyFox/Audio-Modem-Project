@@ -50,13 +50,13 @@ ffts = np.fft.fft(sync1)
 
 plt.plot(correlation)
 plt.show()
-visualize.plot_fft(ffts, fs)
-visualize.plot_fft(fftr, fs)
+visualize.plot_fft(ffts, fs,f0,f1)
+visualize.plot_fft(fftr, fs,f0,f1)
 
 print(len(fftr),len(ffts))
 
 channel = fftr / ffts#fftr[f0:f1] / ffts[f0:f1]
-visualize.plot_fft(channel, fs)
+visualize.plot_fft(channel, fs,f0,f1)
 visualize.plot_constellation(channel)
 
 impulse = np.fft.ifft(fftr/ffts)
