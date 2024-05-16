@@ -50,8 +50,8 @@ sync1 = sync[len(sync)//2:]
 #plt.show()
 ffts = np.fft.fft(sync1)
 
-data = recording[position+len(sync)+block_length:position+len(sync)+block_length*2]
-
+data = recording[position+len(sync)+fs:position+len(sync)+fs*2]
+#data = np.pad(data,(0,fs-len(data)))
 #plt.plot(correlation)
 #plt.show()
 
@@ -72,10 +72,13 @@ impulse = np.fft.irfft(channel)
 #plt.plot(impulse)
 #plt.show()
 
-data_fft = np.fft.rfft(data)
+data_fft = np.fft.fft(data)
+data_fft = data_fft[f0:f1 - (f1-f0)//2]
 print(len(data_fft))
-data_fft = data_fft/(channel[f0:f1])
-visualize.plot_fft(data_fft,fs,vf0,vf1)
+visualize.plot_fft(data_fft,fs,0,fs)
+visualize.plot_constellation(data_fft)
+data_fft = data_fft/(channel[f0:f1 - (f1-f0)//2])
+visualize.plot_fft(data_fft,fs,0,fs)
 visualize.plot_constellation(data_fft)
 
 

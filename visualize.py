@@ -1,3 +1,4 @@
+from math import inf
 from multiprocessing import Value
 import numpy as np
 import matplotlib.pyplot as plt
@@ -26,6 +27,8 @@ def plot_constellation(fft):
     plt.axhline(0, color='gray')
     plt.axvline(0, color='gray')
     plt.axis('scaled')
+    if l == inf or l==np.NaN:
+        l=100
     plt.ylim(-l, l)
     plt.xlim(-l, l)
     plt.show()
