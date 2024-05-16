@@ -30,6 +30,8 @@ recording = recording.flatten()
 #print(type(sync))
 #print(sync)
 
+block_length = 1000
+
 #sync = np.pad(sync, (0,len(recording)-len(sync)))
 correlation = scipy.signal.correlate(recording, sync)
 
@@ -37,9 +39,13 @@ peak_correlation = np.max(correlation)
 position = int(np.where(correlation ==peak_correlation)[0]) - len(sync)
 print("position:", position)
 print(len(sync))
+plt.plot(recording)
+plt.show()
 chirp = recording[position + len(sync)//2 :position+len(sync)]
 fftr = np.fft.fft(chirp)
 ffts = np.fft.fft(sync)
+
+#data = recording[position+block_length:position+block_length*2]
 
 plt.plot(correlation)
 plt.show()

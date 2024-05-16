@@ -11,7 +11,7 @@ def plot_fft(fft,fs):
     dur = n_samples/fs
     x = np.linspace(0,fs,n_samples)
     fig, ax = plt.subplots(4)
-    ax[0].plot(x,np.log(np.absolute(fft)))
+    ax[0].plot(x,np.log10(np.absolute(fft)))
     ax[1].plot(x,np.absolute(fft))
     ax[2].plot(x,np.angle(fft))
     ax[3].scatter(x,np.angle(fft))
