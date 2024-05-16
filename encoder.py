@@ -13,7 +13,7 @@ def random_binary(N):
 
 
 
-binary = random_binary(4000)
+binary = random_binary(2000)
 block_length = 1000
 freqs = block_length # int(block_length /2 - 1)
 fs = 44100
@@ -62,7 +62,7 @@ for block in blocks_list:
     blocks_fft.append(ft)
     #v.plot_fft(ft,fs)
 
-chirp = ps.gen_chirp(f0,f1,fs,0.5)
+chirp = ps.gen_chirp(f0,f1,fs,1)
 chirp = ps.double_signal(chirp)
 transmission = []
 for block in blocks_fft:

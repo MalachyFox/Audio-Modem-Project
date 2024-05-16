@@ -14,7 +14,7 @@ fs = 44100
 f0 = 3500
 f1 = 4500
 
-sync = playsound.gen_chrip(f0,f1,fs,1)
+sync = playsound.gen_chirp(f0,f1,fs,1)
 sync = playsound.double_signal(sync)
 #sync = playsound.gen_chirp(500,1500,fs,1)
 #playsound.save_signal(signal,'sync-chirp-low-long')
@@ -30,6 +30,8 @@ recording = recording.flatten()
 #print(type(sync))
 #print(sync)
 
+block_length = 1000
+
 #sync = np.pad(sync, (0,len(recording)-len(sync)))
 correlation = scipy.signal.correlate(recording, sync)
 
@@ -37,9 +39,13 @@ peak_correlation = np.max(correlation)
 position = int(np.where(correlation ==peak_correlation)[0]) - len(sync)
 print("position:", position)
 print(len(sync))
-chirp = recording[position + len(sync)/2 :position+len(sync)]
+plt.plot(recording)
+plt.show()
+chirp = recording[position + len(sync)//2 :position+len(sync)]
 fftr = np.fft.fft(chirp)
 ffts = np.fft.fft(sync)
+
+#data = recording[position+block_length:position+block_length*2]
 
 plt.plot(correlation)
 plt.show()
