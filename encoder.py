@@ -8,27 +8,28 @@ from matplotlib import pyplot as plt
 from bitstring import BitArray
 
 def random_binary(N):
-    output = ""
-    for i in range(N):
-        output += str(np.random.randint(0,2))
+    random.seed(1)
+    return ''.join(random.choices(["0","1"], k=N))
 
 
 
-with open('weekend-challenge/parsed.tiff',"rb") as file:
-     file_binary = file.read()
+# with open('weekend-challenge/parsed.tiff',"rb") as file:
+#      file_binary = file.read()
 
-binary = BitArray(file_binary).bin
-
-#print(binary[:20])
-#binary = random_binary(1000)
-#binary = "00011110"*125*2
-block_length = 1000
-data_block_length = block_length //2 # int(block_length /2 - 1)
-fs = 44100
+# binary = BitArray(file_binary).bin
 
 M = 4
-
 m = int(np.log2(M))
+block_length = 2000
+#print(binary[:20])
+binary = random_binary(block_length*m)
+#binary = "00011110"*125*2
+print(binary)
+
+data_block_length = block_length #//2 # int(block_length /2 - 1)
+fs = 44100
+
+
 one = int(len(binary)%m)
 binary = binary +  (m - one)%m * "0" # makes sure binary can be divided into values
 two = len(binary)//m%data_block_length
@@ -42,7 +43,7 @@ phase_list = []
 for value in binary_list:
     #print(value)
     b_int = gray_code_to_tc(int(value,2))
-    b_phase = (b_int)*2*np.pi /M    #b_int + 0.5? ??
+    b_phase = (b_int + 0.5)*2*np.pi /M    #b_int + 0.5? ??
     if b_phase > np.pi:
         b_phase = -(2*np.pi - b_phase)
     phase_list.append(b_phase)
@@ -52,8 +53,9 @@ blocks_list = []
 for p in range(int(len(phase_list)/data_block_length)):
     blocks_list.append(phase_list[data_block_length * p:data_block_length*(1+p)])
 
+print("NUMBER OF BLOCKS:", len(blocks_list))
 
-f0 = 6500
+f0 = 5500
 f1 = f0 + block_length
 
 f_d_half = np.zeros(int(fs/2),dtype=np.complex_)
@@ -61,10 +63,10 @@ f_d_half = np.zeros(int(fs/2),dtype=np.complex_)
 blocks_fft = []
 for block in blocks_list:
     block_f_d = f_d_half
-    print(len(block), "LENGTH BLOCK")
+    #print(len(block), "LENGTH BLOCK")
     for i in range(int(len(block))):
         block_f_d[f0 + i] = 1 * np.cos(block[i]) + 1j * np.sin(block[i])
-        block_f_d[f1 - i - 1] = 1 * np.cos(block[i]) - 1j * np.sin(block[i])
+        #block_f_d[f1 - i - 1] = 1 * np.cos(block[i]) - 1j * np.sin(block[i])
     #ft = np.concatenate((block_f_d,np.flip(np.conjugate(block_f_d))))
     ft = block_f_d
     blocks_fft.append(ft)
@@ -78,7 +80,7 @@ chirp = ps.double_signal(chirp)
 transmission = []
 for block in blocks_fft:
     signal = np.fft.irfft(block,fs)
-    print(len(signal),"LENGTH")
+    #print(len(signal),"LENGTH")
     dur = len(signal)/fs
     max = np.max(signal)
     signal = signal /max # normalise to avoid clipping
