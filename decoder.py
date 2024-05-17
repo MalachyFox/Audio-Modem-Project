@@ -80,6 +80,7 @@ def blocks_to_bytes(blocks_adj_fft,M=4):
             m = round((phase - angle/2) / angle) 
             format_graycode = f"0{str(bits_per_symbol)}b"
             graycode = format(gray(m),format_graycode)
+            print(m,graycode,phase)
             output += graycode
 
     output_bytes = []

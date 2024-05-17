@@ -20,11 +20,12 @@ def random_binary(N):
 
 M = 4
 m = int(np.log2(M))
-block_length = 2000
+block_length = 2048
 #print(binary[:20])
 binary = random_binary(block_length*m)
+binary = "00000000111111110101010110101010" + binary[:-33]
 #binary = "00011110"*125*2
-print(binary)
+print(binary[:100])
 
 data_block_length = block_length #//2 # int(block_length /2 - 1)
 fs = 44100
@@ -43,10 +44,12 @@ phase_list = []
 for value in binary_list:
     #print(value)
     b_int = gray_code_to_tc(int(value,2))
+    
     b_phase = (b_int + 0.5)*2*np.pi /M    #b_int + 0.5? ??
     if b_phase > np.pi:
         b_phase = -(2*np.pi - b_phase)
     phase_list.append(b_phase)
+    #print(b_int,value,b_phase)
 
 
 blocks_list = []
@@ -55,7 +58,7 @@ for p in range(int(len(phase_list)/data_block_length)):
 
 print("NUMBER OF BLOCKS:", len(blocks_list))
 
-f0 = 5500
+f0 = 1000
 f1 = f0 + block_length
 
 f_d_half = np.zeros(int(fs/2),dtype=np.complex_)
@@ -77,6 +80,7 @@ for block in blocks_list:
 chirp = ps.gen_chirp(f0,f1,fs,1)
 chirp = ps.double_signal(chirp)
 
+
 transmission = []
 for block in blocks_fft:
     signal = np.fft.irfft(block,fs)
@@ -92,7 +96,7 @@ for block in blocks_fft:
     #v.plot_fft(np.fft.rfft(signal),fs)
     signal = np.concatenate((chirp,signal))
     transmission = np.concatenate((transmission,signal))
-ps.play_signal(transmission,fs)
+ps.play_signal(transmission*1 ,fs)
 
 
 

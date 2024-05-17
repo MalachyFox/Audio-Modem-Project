@@ -8,10 +8,10 @@ def plot_channel(channel):
     plt.stem(range(len(channel)),channel)
     plt.show()
 
-def plot_fft(fft,fs,f0,f1,title):
+def plot_fft(fft,fs_,f0,f1,title):
     n_samples = len(fft)
-    dur = n_samples/fs
-    x = np.linspace(f0,f1,(n_samples//fs) * (f1-f0))
+    dur = n_samples/fs_
+    x = np.linspace(f0,f1)
     fft = fft[int(f0*dur):int(f1*dur)]
     fig, ax = plt.subplots(2)
     ax[0].title.set_text('Frequency Domain')
