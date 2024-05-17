@@ -11,8 +11,9 @@ import matplotlib.pyplot as plt
 seconds = 7
 fs = 44100
 
-f0 = 6500
-f1 = 7500
+f0 = 5500
+block_length = 2000
+f1 = f0 + block_length
 
 sync = playsound.gen_chirp(f0,f1,fs,1)
 sync = playsound.double_signal(sync)
@@ -30,7 +31,7 @@ recording = recording.flatten()
 #print(type(sync))
 #print(sync)
 
-block_length = 1000
+
 
 #sync = np.pad(sync, (0,len(recording)-len(sync)))
 correlation = np.absolute(scipy.signal.correlate(recording, sync))
@@ -73,11 +74,11 @@ impulse = np.fft.irfft(channel)
 #plt.show()
 
 data_fft = np.fft.fft(data)
-data_fft = data_fft[f0:f1 - (f1-f0)//2]
+data_fft = data_fft[f0:f1]
 print(len(data_fft))
 visualize.plot_fft(data_fft,fs,0,fs)
 visualize.plot_constellation(data_fft)
-data_fft = data_fft/(channel[f0:f1 - (f1-f0)//2])
+data_fft = data_fft/(channel[f0:f1])
 visualize.plot_fft(data_fft,fs,0,fs)
 visualize.plot_constellation(data_fft)
 
