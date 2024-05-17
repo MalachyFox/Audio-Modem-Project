@@ -8,7 +8,7 @@ def plot_channel(channel):
     plt.stem(range(len(channel)),channel)
     plt.show()
 
-def plot_fft(fft,fs,f0,f1):
+def plot_fft(fft,fs,f0,f1,title):
     n_samples = len(fft)
     dur = n_samples/fs
     x = np.linspace(f0,f1,(n_samples//fs) * (f1-f0))
@@ -24,11 +24,11 @@ def plot_fft(fft,fs,f0,f1):
     ax[1].scatter(x,np.angle(fft),s=4)
     ax[1].set_xlabel("f / Hz")
     ax[1].set_ylabel('Phase / rad')
-    plt.savefig(f"FFT-{f0}-{f1}-{datetime.datetime.now()}")
+    plt.savefig(f"FFT-{f0}-{f1}-{title}-{datetime.datetime.now()}")
     plt.show()
     
 
-def plot_constellation(fft):
+def plot_constellation(fft,title):
     l=abs(np.max(fft))*1.2
     r = np.real(fft)
     i = np.imag(fft)
@@ -41,5 +41,5 @@ def plot_constellation(fft):
     l = 300
     plt.ylim(-l, l)
     plt.xlim(-l, l)
-    plt.savefig(f"CONSTELLATION-{datetime.datetime.now()}")
+    plt.savefig(f"CONSTELLATION-{title}-{datetime.datetime.now()}")
     plt.show()
