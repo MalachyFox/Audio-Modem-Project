@@ -88,7 +88,7 @@ print("rec", np.angle(data_fft)[:10])
 data_fft = data_fft/(channel[f0:f1])
 print("adj", np.angle(data_fft)[:10])
 print("channel", np.angle(channel[f0:f1])[:10])
-  = sum(np.angle(data_fft[0:3]))/4
+#  = sum(np.angle(data_fft[0:3]))/4
 import decoder as d
 bytes_list, r_bits = d.blocks_to_bytes([data_fft],4)
 
