@@ -8,11 +8,11 @@ def plot_channel(channel):
     plt.stem(range(len(channel)),channel)
     plt.show()
 
-def plot_fft(fft,fs,f0,f1,title):
+def plot_fft(fft,fs_,f0=0,f1=44100,title="no title"):
     n_samples = len(fft)
-    dur = n_samples/fs
-    x = np.linspace(f0,f1,(n_samples//fs) * (f1-f0))
-    fft = fft[int(f0*dur):int(f1*dur)]
+    dur = n_samples/fs_
+    x = np.linspace(f0,f1,f1-f0)
+    #fft = fft[int(f0*dur):int(f1*dur)]
     fig, ax = plt.subplots(2)
     ax[0].title.set_text('Frequency Domain')
     ax[0].set_xlabel('f / Hz')
@@ -24,11 +24,11 @@ def plot_fft(fft,fs,f0,f1,title):
     ax[1].scatter(x,np.angle(fft),s=4)
     ax[1].set_xlabel("f / Hz")
     ax[1].set_ylabel('Phase / rad')
-    plt.savefig(f"FFT-{f0}-{f1}-{title}-{datetime.datetime.now()}")
+    plt.savefig(f"FFT-{f0}-{f1}-{title}-{datetime.datetime.now()}.png")
     plt.show()
     
 
-def plot_constellation(fft,title):
+def plot_constellation(fft,title="no title"):
     l=abs(np.max(fft))*1.2
     r = np.real(fft)
     i = np.imag(fft)
@@ -36,10 +36,9 @@ def plot_constellation(fft,title):
     plt.axhline(0, color='gray')
     plt.axvline(0, color='gray')
     plt.axis('scaled')
-    if l == np.inf or l==np.NaN:
-        l=100
-    l = 300
+    avg = np.average(np.absolute(fft))
+    l = avg * 2
     plt.ylim(-l, l)
     plt.xlim(-l, l)
-    plt.savefig(f"CONSTELLATION-{title}-{datetime.datetime.now()}")
+    plt.savefig(f"CONSTELLATION-{title}-{datetime.datetime.now()}.png")
     plt.show()
