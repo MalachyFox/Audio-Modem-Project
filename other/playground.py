@@ -2,7 +2,7 @@ from sys import set_asyncgen_hooks
 import decoder as d
 import numpy as np
 import visualize as v
-import randomise
+import other.randomise as randomise
 
 pref_len = 32
 N = 1024

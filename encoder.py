@@ -24,6 +24,13 @@ def random_binary(N):
     random.seed(1)
     return ''.join(random.choices(["0","1"], k=N))
 
+def correct_binary_length(binary,m=m):
+    one = int(len(binary)%m)
+    binary = binary +  (m - one)%m * "0" # makes sure binary can be divided into values
+    two = len(binary)//m%data_block_length
+    binary = binary +  (data_block_length - two)%(data_block_length) * m * "0" # makes sure binary can be divided into blocks
+    return binary
+
 def binary_str_to_symbols(binary,m=m):
     symbols = []
     for i in range(len(binary)//m):
@@ -41,13 +48,6 @@ def symbols_to_phases(symbols,M=M):
         phases.append(b_phase)
     #print(b_int,value,b_phase)
     return phases
-
-def correct_binary_length(binary,m=m):
-    one = int(len(binary)%m)
-    binary = binary +  (m - one)%m * "0" # makes sure binary can be divided into values
-    two = len(binary)//m%data_block_length
-    binary = binary +  (data_block_length - two)%(data_block_length) * m * "0" # makes sure binary can be divided into blocks
-    return binary
 
 def phases_to_blocks(phases,data_block_length=data_block_length):
     blocks = []
