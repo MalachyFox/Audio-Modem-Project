@@ -136,7 +136,7 @@ def prep_ldpc_encode(binary,n=n,d_v=d_v,d_c=d_c):
 
 if __name__ == "__main__":
 
-    binary = random_binary(block_length*m)
+    binary = random_binary(block_length*m //2)
     binary = "00000000111111110101010110101010" + binary[:-33]
     binary = prep_ldpc_encode(binary)
     binary = correct_binary_length(binary)
