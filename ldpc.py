@@ -3,7 +3,8 @@ from pyldpc import make_ldpc, decode
 
 # Modified from pyldpc package
 def binaryproduct(X, Y):
-    A = X.dot(Y)
+
+    A = np.dot(X,Y)
     try:
         A = A.toarray()
     except AttributeError:
@@ -12,15 +13,18 @@ def binaryproduct(X, Y):
 
 # Modified from pyldpc package
 def encode(tG, v):
+
     n, k = tG.shape
-    d = binaryproduct(tG, v)
-    x = (-1) ** d
+    d = binaryproduct(v,tG)
 
-    return x
+    #x = (-1) ** d
 
-def ldpc_encode(n, d_v, d_c, message):
-    H, G = make_ldpc(n, d_v, d_c)
-    encoded_message = encode(G, message)
+    return d
+
+def ldpc_encode(H,G,message):
+    #H, G = make_ldpc(n, d_v, d_c,systematic=True,seed=1)
+    tG = np.transpose(G)
+    encoded_message = encode(tG, message)
 
     return encoded_message
 

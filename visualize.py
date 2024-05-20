@@ -24,7 +24,7 @@ def plot_fft(fft,fs_,f0=0,f1=44100,title="no title"):
     ax[1].scatter(x,np.angle(fft),s=4)
     ax[1].set_xlabel("f / Hz")
     ax[1].set_ylabel('Phase / rad')
-    plt.savefig(f"FFT-{f0}-{f1}-{title}-{datetime.datetime.now()}.png")
+    plt.savefig(f"test_figures/FFT-{f0}-{f1}-{title}-{datetime.datetime.now()}.png")
     plt.show()
     
 
@@ -40,5 +40,5 @@ def plot_constellation(fft,title="no title"):
     l = avg * 2
     plt.ylim(-l, l)
     plt.xlim(-l, l)
-    plt.savefig(f"CONSTELLATION-{title}-{datetime.datetime.now()}.png")
+    plt.savefig(f"test_figures/CONSTELLATION-{title}-{datetime.datetime.now()}.png")
     plt.show()

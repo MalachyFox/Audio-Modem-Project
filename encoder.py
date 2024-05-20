@@ -1,3 +1,4 @@
+from uu import encode
 import bitarray
 import numpy as np
 from graycode import gray_code_to_tc
@@ -20,6 +21,9 @@ block_length = 2048
 data_block_length = block_length
 f0 = 1000
 f1 = f0 + block_length
+n=12
+d_v = 3
+d_c = 6
 
 def random_binary(N):
     random.seed(1)
@@ -95,11 +99,46 @@ def blocks_fft_to_signal(blocks_fft,fs=fs,f0=f0,f1=f1):
     transmission = np.concatenate((chirp2,transmission))
     return transmission
 
+def prep_ldpc_encode(binary,n=n,d_v=d_v,d_c=d_c):
+
+    H, G = ldpc.make_ldpc(n, d_v, d_c,systematic=True,seed=1)
+
+    len_msg = G.shape[1] # v # length of message
+    #print(len_msg)
+    messages = []
+
+    # round to message lengths
+    if len(binary) % len_msg >0:
+        binary += (len(binary)%len_msg)*"0" 
+    
+    #convert to array of integers
+    for i in range(len(binary)//len_msg):
+        message = binary[i*len_msg:(i+1)*len_msg]
+        message_ = []
+        for b in message:
+            message_.append(int(b))
+        messages.append(np.array(message_))
+
+
+    
+    #print(G)
+    #encode
+    encoded_messages = []
+    for message in messages:
+        encoded_messages.append(ldpc.ldpc_encode(H,G,message=message))
+
+    #convert to string of bits
+    output = ""
+    for encoded_messsage in encoded_messages:
+        for bit in encoded_messsage:
+            output += str(bit)
+    return output
+
 if __name__ == "__main__":
 
     binary = random_binary(block_length*m)
     binary = "00000000111111110101010110101010" + binary[:-33]
-    binary = 
+    binary = prep_ldpc_encode(binary)
     binary = correct_binary_length(binary)
     symbols = binary_str_to_symbols(binary)
     phases = symbols_to_phases(symbols)
@@ -107,8 +146,9 @@ if __name__ == "__main__":
     blocks_fft = blocks_to_blocks_fft(blocks)
     signal = blocks_fft_to_signal(blocks_fft)
 
-    print("fs:",fs,"M:",M,"block length:",block_length)
-    print("BINARY:",binary[:100])
+    print("fs:",fs,'f0:',f0,'f1:',f1,"M:",M,"block length:",block_length, 'n:',n,'d_v:',d_v,'d_c:',d_c)
+
+    print("BINARY:",binary[:100],"...")
     print("NUMBER OF BLOCKS:", len(blocks))
 
     gain = 1
