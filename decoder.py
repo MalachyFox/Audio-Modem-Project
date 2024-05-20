@@ -61,7 +61,7 @@ def divide_ffts(blocks_fft, channel_fft):
 def blocks_to_bytes(blocks_adj_fft,M=4):
     print("starting decode...")
 
-    blocks_phase = np.array([np.angle(block)[1:] for block in blocks_adj_fft])
+    blocks_phase = np.array([np.angle(block) for block in blocks_adj_fft])
     output = ""
     angle = 2*np.pi / M
     bits_per_symbol = int(np.log2(M))
@@ -80,7 +80,7 @@ def blocks_to_bytes(blocks_adj_fft,M=4):
             m = round((phase - angle/2) / angle) 
             format_graycode = f"0{str(bits_per_symbol)}b"
             graycode = format(gray(m),format_graycode)
-            print(m,graycode,phase)
+            #print(m,graycode,phase)
             output += graycode
 
     output_bytes = []
@@ -93,7 +93,7 @@ def blocks_to_bytes(blocks_adj_fft,M=4):
 
     output_bytes = bytes(output_bytes)
 
-    return output_bytes
+    return output_bytes, output
 
 def save_as_text(some_bytes,filename):
     output = str(some_bytes, 'utf-8',errors='ignore')
