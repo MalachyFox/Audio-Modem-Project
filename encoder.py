@@ -125,7 +125,7 @@ def prep_ldpc_encode(binary,n=n,d_v=d_v,d_c=d_c):
     #encode
     encoded_messages = []
     for message in messages:
-        encoded_messages.append(ldpc.ldpc_encode(H,G,message=message))
+        encoded_messages.append(ldpc.ldpc_encode(G,message=message))
 
     #convert to string of bits
     output = ""

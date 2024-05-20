@@ -21,15 +21,15 @@ def encode(tG, v):
 
     return d
 
-def ldpc_encode(H,G,message):
+def ldpc_encode(G,message):
     #H, G = make_ldpc(n, d_v, d_c,systematic=True,seed=1)
     tG = np.transpose(G)
     encoded_message = encode(tG, message)
 
     return encoded_message
 
-def ldpc_decode(n, d_v, d_c, encoded_message, SNR):
-    H, G = make_ldpc(n, d_v, d_c)
+def ldpc_decode(H, encoded_message, SNR=100):
+    #H, G = make_ldpc(n, d_v, d_c)
     decoded_message = decode(H, encoded_message, SNR)
     
     return decoded_message
