@@ -6,6 +6,7 @@ import playsound as ps
 import random
 from matplotlib import pyplot as plt
 from bitstring import BitArray
+import ldpc
 
 # with open('weekend-challenge/parsed.tiff',"rb") as file:
 #      file_binary = file.read()
@@ -98,7 +99,7 @@ if __name__ == "__main__":
 
     binary = random_binary(block_length*m)
     binary = "00000000111111110101010110101010" + binary[:-33]
-
+    binary = 
     binary = correct_binary_length(binary)
     symbols = binary_str_to_symbols(binary)
     phases = symbols_to_phases(symbols)
