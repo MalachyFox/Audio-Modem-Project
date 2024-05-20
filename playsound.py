@@ -7,13 +7,13 @@ import csv
 
 fs = 44100
 
-def gen_sine(f,fs,duration):
+def gen_sine(f,fs=fs,duration=1):
 
     t = np.arange(duration * fs)
     transmitted_signal = np.sin(2 * np.pi * t * f / fs)
     return transmitted_signal
 
-def gen_chirp(f0,f1,fs,duration):
+def gen_chirp(f0,f1,fs=fs,duration=1):
     t = np.linspace(0, duration, int(fs * duration))  # Time array
     transmitted_signal = chirp(t, f0, duration, f1, method='linear')
     return transmitted_signal
@@ -29,7 +29,7 @@ def save_signal(signal,filename):
         csv_writer.writerow(signal)
     return
 
-def play_signal(signal,fs):
+def play_signal(signal,fs=fs):
     input("press enter to play")
     sd.play(signal,fs)
     sd.wait()
@@ -38,7 +38,7 @@ def load_signal(filename):
     signal = np.genfromtxt(filename,delimiter=',')
     return signal
 
-def super_sine(f_array, fs,duration):
+def super_sine(f_array, fs=fs,duration=1):
     print(f_array)
     t = np.arange(duration * fs)
     transmitted_signal = np.zeros(len(t))
@@ -50,6 +50,13 @@ def double_signal(signal):
     return np.concatenate((signal,signal))
 
 
+if __name__ == "__main__":
+
+    signal = gen_chirp( 6500,7500,fs,1)
+    signal = double_signal(signal)
+    play_signal(signal,fs)
+
+    
 #signal = super_sine(np.linspace(500,1000,50),fs,2)
 #print(signal[100:200])
 #save_signal(signal,'sync-chirp-low.csv')
