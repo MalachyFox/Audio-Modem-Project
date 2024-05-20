@@ -91,6 +91,10 @@ data_fft = np.fft.fft(data)
 #data_fft = data_fft *(1-1j)
 data_fft0 = data_fft[f0:f1]
 
+for i in range(len(data_fft0)):
+    f = f0 + i
+    data_fft0[i] = data_fft0[i] * np.exp(1j*np.pi*f/(fs//2))
+
 print(len(data_fft0))
 print("rec", np.angle(data_fft0)[:10])
 #visualize.plot_fft(data_fft,fs,0,fs)
