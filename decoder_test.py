@@ -12,7 +12,7 @@ seconds = 8
 fs = 44100
 gain = 1
 f0 = 1000
-block_length = 16384
+block_length = 8192
 f1 = f0 + block_length
 no = 1
 
@@ -93,7 +93,7 @@ data_fft0 = data_fft[f0:f1]
 
 for i in range(len(data_fft0)):
     f = f0 + i
-    data_fft0[i] = data_fft0[i] * np.exp(1j*np.pi*f/(fs//2))
+    data_fft0[i] = data_fft0[i] * np.exp(1j*2*np.pi*f/(fs//2))
 
 print(len(data_fft0))
 print("rec", np.angle(data_fft0)[:10])

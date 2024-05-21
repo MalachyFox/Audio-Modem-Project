@@ -17,7 +17,7 @@ import ldpc
 fs = 44100
 M = 4
 m = int(np.log2(M))
-block_length = 16384
+block_length = 10000
 data_block_length = block_length
 f0 = 1000
 f1 = f0 + block_length
@@ -137,7 +137,7 @@ def prep_ldpc_encode(binary,n=n,d_v=d_v,d_c=d_c):
 if __name__ == "__main__":
 
     binary = random_binary(block_length*m)
-    binary = "00000000111111110101010110101010" + binary[:-33]
+    #binary = "00000000111111110101010110101010" + binary[:-33]
     #binary = prep_ldpc_encode(binary)
     binary = correct_binary_length(binary)
     symbols = binary_str_to_symbols(binary)
