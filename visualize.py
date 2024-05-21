@@ -10,17 +10,12 @@ def plot_channel(channel):
 
 def plot_fft(fft,fs_,f0=0,f1=44100,title=""):
     n_samples = len(fft)
-    dur = n_samples/fs_
     x = np.linspace(f0,f1,f1-f0)
-    #fft = fft[int(f0*dur):int(f1*dur)]
     fig, ax = plt.subplots(2)
     ax[0].title.set_text('Frequency Domain')
     ax[0].set_xlabel('f / Hz')
     ax[0].set_ylabel('Log10 Ambplitude')
-    #ax[0].plot(x,np.log10(np.absolute(fft)))
     ax[0].plot(x,np.log(np.absolute(fft)))
-    #ax[1].plot(x,np.absolute(fft))
-    #ax[2].plot(x,np.angle(fft))
     ax[1].scatter(x,np.angle(fft),s=4)
     ax[1].set_xlabel("f / Hz")
     ax[1].set_ylabel('Phase / rad')
@@ -33,7 +28,7 @@ def plot_constellation(fft,colours,title=""):
     l=abs(np.max(fft))*1.2
     r = np.real(fft)
     i = np.imag(fft)
-    plt.scatter(r,i,s=4,c=colours,alpha=0.2)
+    plt.scatter(r,i,s=6,c=colours,alpha=0.3)
     plt.axhline(0, color='gray')
     plt.axvline(0, color='gray')
     plt.axis('scaled')
@@ -43,4 +38,32 @@ def plot_constellation(fft,colours,title=""):
     plt.xlim(-l, l)
     if title != "":
         plt.savefig(f"test_figures/{title}-con.png")
+    plt.show()
+
+def big_plot(blocks,fs,f0,f1,colours,title=""):
+    fig, axs = plt.subplots(2,len(blocks),sharex='row',sharey='row')
+    for i in range(len(blocks)):
+        fft = blocks[i]
+        n_samples = len(fft)
+        x = np.linspace(f0,f1,f1-f0)
+        # axs[1,i].title.set_text('Frequency Domain')
+        # axs[1,i].set_xlabel('f / Hz')
+        # axs[1,i].set_ylabel('Log10 Ambplitude')
+        # axs[1,i].plot(x,np.log(np.absolute(fft)))
+        axs[1,i].scatter(x,np.angle(fft),s=4)
+        axs[1,i].set_xlabel("f / Hz")
+        axs[1,i].set_ylabel('Phase / rad')
+        l=abs(np.max(fft))*1.2
+        r = np.real(fft)
+        im = np.imag(fft)
+        axs[0,i].scatter(r,im,s=6,c=colours[i*len(fft):(i+1)*len(fft)],alpha=0.1)
+        axs[0,i].axhline(0, color='gray')
+        axs[0,i].axvline(0, color='gray')
+        axs[0,i].axis('scaled')
+        avg = np.average(np.absolute(fft))
+        l = avg * 2
+        axs[0,i].set_ylim(-l, l)
+        axs[0,i].set_xlim(-l, l)
+        if title != "":
+            plt.savefig(f"test_figures/{title}-big.png")
     plt.show()

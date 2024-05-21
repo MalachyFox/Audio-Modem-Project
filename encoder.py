@@ -18,7 +18,7 @@ import ldpc
 fs = 44100
 M = 4
 m = int(np.log2(M))
-block_length = 2048
+block_length = 16384
 data_block_length = block_length
 f0 = 1000
 f1 = f0 + block_length
@@ -139,13 +139,11 @@ if __name__ == "__main__":
     signal = blocks_fft_to_signal(blocks_fft)
 
     print("fs:",fs,'f0:',f0,'f1:',f1,"M:",M,"block length:",block_length, 'n:',n,'d_v:',d_v,'d_c:',d_c)
-
-    print("BINARY:",binary[:16],"...",binary[2*8192:2*8192+16])
     print("NUMBER OF BLOCKS:", len(blocks))
 
     gain = 1
     #ps.play_signal(signal*gain ,fs)
-    ps.save_signal(signal,fs,'test_sig.wav')
+    ps.save_signal(signal,fs,f'test_signals/test_sig_{f0}_{f1}_{len(blocks)}b.wav')
 
 
 

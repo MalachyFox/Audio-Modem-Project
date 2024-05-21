@@ -10,9 +10,9 @@ import encoder as e
 
 seconds = 14
 fs = 44100
-gain = 2
+gain = 1
 f0 = 1000
-block_length = 2048
+block_length = 16384
 f1 = f0 + block_length
 num_blocks = 4
 record = False
@@ -28,9 +28,9 @@ if record == True:
     recording = sd.rec(fs * seconds,samplerate = fs,channels=1)
     sd.wait()
     recording = recording.flatten()
-    playsound.save_signal(recording,fs,'recording.csv')
+    playsound.save_signal(recording,fs,f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv')
 else:
-    recording = playsound.load_signal('recording.csv')
+    recording = playsound.load_signal( f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv')
     recording = recording.flatten()
 
 
@@ -80,14 +80,13 @@ channel = np.pad(channel,(f0,fs-f1))
 #perform least squares on the two chirps
 x = np.linspace(f0,f1,f1-f0)
 y = np.angle(fft_chirp2[f0:f1] * np.conj(fft_chirp1[f0:f1]))
-m_, c_ = np.polyfit(x,y,1)
+m, c = np.polyfit(x,y,1)
 
-resid = np.array([(y - (m_*x + c_))**2 for x, y in zip(x,y)])
-print(resid)
-m, c = np.polyfit(x,y,1,w=1/resid)
+# resid = np.array([(y - (m_*x + c_))**2 for x, y in zip(x,y)])
+# m, c = np.polyfit(x,y,1,w=1/resid)
 
 plt.scatter(x,y,alpha=0.1)
-plt.plot(x,x*m_ + c_,label="1",c="b")
+#plt.plot(x,x*m_ + c_,label="1",c="b")
 plt.plot(x,x*m + c,label="2",c="r")
 plt.legend()
 plt.show()
@@ -101,26 +100,25 @@ block_samples = fs
 blocks = []
 i=0
 while True:
-    print(i)
+
     group_length = prefix_samples + block_samples
     start = position_data + prefix_samples + group_length * i
     end = position_data + group_length + group_length * i
     data = recording[start:end]
-    print(start,end,len(data))
     data_fft = np.fft.fft(data)
     data_fft = data_fft[f0:f1]
     data_fft = data_fft/(channel[f0:f1])
 
     #make cfo and sfo adjustment
 
-    block_number = (i+1)*2
+    bm = 2 + i*3.5   #3.3
+    bc = 2           #1
 
     for k in range(len(data_fft)):
         f =  f0 + k
-        angle = np.exp(-block_number*1j * (m*f + c))
+        angle = np.exp(-1j*(m*f*bm + c*bc))
         data_fft[k] = data_fft[k] * angle
 
-    print(data_fft)
     blocks.append(data_fft)
     i += 1
     if i == num_blocks:
@@ -147,11 +145,12 @@ for i in range(len(t_bits)//2):
         colours.append("b")
 
 #compare signals
-
+total_errors = 0
 for b in range(len(blocks)):
     r = r_bits[b*block_length*2:(b+1)*block_length*2]
     t = t_bits[b*block_length*2:(b+1)*block_length*2]
     count = sum(1 for a,b in zip(r,t)if a != b) /(block_length*2) * 100
+    total_errors += count
     errors = str(count)[:4] + "%"
     print(f"block {b}, {errors} errors")
     view = 20
@@ -159,7 +158,15 @@ for b in range(len(blocks)):
     print("sent:",t[:view],"...",t[-view:])
     print()
 
-for i in range(num_blocks):
-    col = colours[i*block_length:(i+1)*block_length]
-    visualize.plot_fft(blocks[i],fs,f0,f1,title=f"{errors}")
-    visualize.plot_constellation(blocks[i],col,title=f"{errors}")
+print(f"TOTAL ERRORS: {(str(total_errors/num_blocks))[:4]}%")
+
+
+visualize.big_plot(blocks,fs,f0,f1,colours)
+
+individual = False
+if individual == True:
+    for i in range(num_blocks):
+        col = colours[i*block_length:(i+1)*block_length]
+        visualize.plot_fft(blocks[i],fs,f0,f1,title=f"{errors}")
+        visualize.plot_constellation(blocks[i],col,title=f"{errors}")
+
