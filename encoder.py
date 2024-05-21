@@ -1,3 +1,4 @@
+from turtle import goto
 from uu import encode
 import bitarray
 import numpy as np
@@ -17,7 +18,7 @@ import ldpc
 fs = 44100
 M = 4
 m = int(np.log2(M))
-block_length = 16384
+block_length = 2048
 data_block_length = block_length
 f0 = 1000
 f1 = f0 + block_length
@@ -61,44 +62,34 @@ def phases_to_blocks(phases,data_block_length=data_block_length):
     return blocks
 
 def blocks_to_blocks_fft(blocks,fs=fs,f0=f0,f1=f1):
-    f_d_half = np.zeros(int(fs/2),dtype=np.complex_)
     blocks_fft = []
     for block in blocks:
-        block_f_d = f_d_half
-        #print(len(block), "LENGTH BLOCK")
-        for i in range(int(len(block))):
+        block_f_d = np.zeros(fs//2,dtype=np.complex_)
+        for i in range(len(block)):
             block_f_d[f0 + i] = 1 * np.cos(block[i]) + 1j * np.sin(block[i])
-            #block_f_d[f1 - i - 1] = 1 * np.cos(block[i]) - 1j * np.sin(block[i])
-        #ft = np.concatenate((block_f_d,np.flip(np.conjugate(block_f_d))))
-        ft = block_f_d
-        blocks_fft.append(ft)
-        #plt.plot(np.absolute(ft))
-        #plt.show()
-        #v.plot_fft(ft,fs,0,fs//2)
+        blocks_fft.append(block_f_d)
+    
     return blocks_fft
 
 def blocks_fft_to_signal(blocks_fft,fs=fs,f0=f0,f1=f1):
     transmission = []
 
     for block in blocks_fft:
-        signal = np.fft.irfft(block,fs)
-        #print(len(signal),"LENGTH")
-        dur = len(signal)/fs
-        max = np.max(signal)
-        signal = signal /max # normalise to avoid clipping
+        signal_ = np.fft.irfft(block,fs)
+        max = np.max(signal_)
+        signal_ = signal_ /max # normalise to avoid clipping
         #signal += ps.gen_sine(f0 - 1,fs,dur)# + freqs//2,fs,dur)
-        signal = np.concatenate((signal,signal))
-
-        #plt.plot(signal)
+        signal_ = np.concatenate((signal_,signal_))
         
         #v.plot_fft(np.fft.rfft(signal),fs)
         
-        transmission = np.concatenate((transmission,signal))
-    chirp = ps.gen_chirp(f0,f1,fs,1)
-    chirp3 = ps.double_signal((chirp,chirp,chirp))
-    transmission = np.concatenate((chirp3,transmission))
+        transmission = np.concatenate((transmission,signal_))
     
-    return transmission
+    chirp = ps.gen_chirp(f0,f1,fs,1)
+    chirp3 = np.concatenate((chirp,chirp,chirp))
+    transmission_ = np.concatenate((chirp3,transmission))
+    
+    return transmission_
 
 def prep_ldpc_encode(binary,n=n,d_v=d_v,d_c=d_c):
 
@@ -136,8 +127,8 @@ def prep_ldpc_encode(binary,n=n,d_v=d_v,d_c=d_c):
     return output
 
 if __name__ == "__main__":
-
-    binary = random_binary(block_length*m)
+    num_blocks = 4
+    binary = random_binary(block_length*m*num_blocks)
     #binary = "00000000111111110101010110101010" + binary[:-33]
     #binary = prep_ldpc_encode(binary)
     binary = correct_binary_length(binary)
@@ -146,13 +137,15 @@ if __name__ == "__main__":
     blocks = phases_to_blocks(phases)
     blocks_fft = blocks_to_blocks_fft(blocks)
     signal = blocks_fft_to_signal(blocks_fft)
+    plt.plot(signal)
+    plt.show()
 
     print("fs:",fs,'f0:',f0,'f1:',f1,"M:",M,"block length:",block_length, 'n:',n,'d_v:',d_v,'d_c:',d_c)
 
-    print("BINARY:",binary[:100],"...")
+    print("BINARY:",binary[:16],"...",binary[2*8192:2*8192+16])
     print("NUMBER OF BLOCKS:", len(blocks))
 
-    gain = 2
+    gain = 1
     ps.play_signal(signal*gain ,fs)
 
 
