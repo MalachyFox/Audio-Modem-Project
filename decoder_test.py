@@ -12,9 +12,9 @@ find_library('portaudio')
 
 seconds = 8
 fs = 44100
-gain = 1
+gain = 2
 f0 = 1000
-block_length = 10000
+block_length = 16384
 f1 = f0 + block_length
 
 
@@ -92,7 +92,7 @@ block_number = 1
 
 for i in range(len(data_fft)):
     f =  f0 + i
-    angle = np.exp(-block_number*2*j *(f*m+c))
+    angle = np.exp(-block_number*2*1j *(f*m+c))
     data_fft[i] = data_fft[i] * angle
 
 
@@ -102,11 +102,11 @@ bytes_list, r_bits = d.blocks_to_bytes([data_fft],4)
 t_bits = e.random_binary(block_length*2)
 
 #compare signals
-print("   received bits:",r_bits[:99])
-print("transmitted bits:",t_bits[:99])
+print("   received bits:",r_bits[:30])
+print("transmitted bits:",t_bits[:30])
 count = sum(1 for a,b in zip(r_bits,t_bits) if a != b) /(block_length*2) * 100
 errors = str(count)[:4] + "%"
-print(errors)
+print("errors:",errors)
 
-visualize.plot_fft(data_fft,fs,f0,f1,title=f"test_figures/fft_{f0}_{f1}_{errors}")
-visualize.plot_constellation(data_fft,title=f"test_figures/fft_{f0}_{f1}_{errors}")
+visualize.plot_fft(data_fft,fs,f0,f1,title=f"fft_{f0}_{f1}_{errors}")
+visualize.plot_constellation(data_fft,title=f"fft_{f0}_{f1}_{errors}")
