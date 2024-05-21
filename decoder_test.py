@@ -19,8 +19,8 @@ f1 = f0 + block_length
 
 
 #generate double sync function
-sync = playsound.gen_chirp(f0,f1,fs,1)
-sync = playsound.double_signal(sync)
+sync_chirp = playsound.gen_chirp(f0,f1,fs,1)
+sync = np.concatenate((sync_chirp,sync_chirp,sync_chirp))
 
 
 #start recording
@@ -33,7 +33,8 @@ recording = recording.flatten()
 # find position
 correlation = scipy.signal.correlate(recording, sync)
 peak_correlation = np.max(correlation)
-position = np.argmax(correlation) - len(sync)
+position_data = np.argmax(correlation)
+position = position_data - len(sync_chirp)*2 # start of 1st chirp (no prefix)
 
 def CFO(sync):
     chirp1 = recording[position : position + len(sync)//2]
@@ -58,23 +59,23 @@ def CFO(sync):
 
 
 # estimate channel
-chirp1 = recording[position : position + len(sync)//2]
-chirp2 = recording[position + len(sync)//2 :position+len(sync)]
+chirp1 = recording[position : position + len(sync_chirp)]
+chirp2 = recording[position + len(sync_chirp) :position+len(sync_chirp)*2]
 fft_chirp1 = np.fft.fft(chirp1)
 fft_chirp2 = np.fft.fft(chirp2)
 
-sync2 = sync[len(sync)//2:]
-fft_sync2 = np.fft.fft(sync2)
+fft_sync_chirp = np.fft.fft(sync_chirp)
 
-channel = fft_chirp2 / fft_sync2
+channel = fft_chirp2 / fft_sync_chirp
 channel = channel[f0:f1]
 channel = np.pad(channel,(f0,fs-f1))
 
 impulse = np.fft.irfft(channel)
 
-
+prefix_samples = fs
+block_samples = fs
 # reverse channel effects
-data = recording[position+len(sync)+fs:position+len(sync)+fs*2]
+data = recording[position_data+prefix_samples:position_data+prefix_samples+block_samples]
 data_fft = np.fft.fft(data)
 data_fft = data_fft[f0:f1]
 data_fft = data_fft/(channel[f0:f1])
