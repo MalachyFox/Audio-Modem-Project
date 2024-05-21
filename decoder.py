@@ -61,18 +61,17 @@ def divide_ffts(blocks_fft, channel_fft):
 def blocks_to_bytes(blocks_adj_fft,M=4):
     print("starting decode...")
 
-    blocks_phase = np.array([np.angle(block) for block in blocks_adj_fft])
+    blocks_phase = []
+    for b in blocks_adj_fft:
+        blocks_phase.append(np.angle(b))
     output = ""
     angle = 2*np.pi / M
     bits_per_symbol = int(np.log2(M))
 
     if M % 2 != 0:
         raise ValueError
-    
-    n = 0
 
     for block in blocks_phase:
-        n += 1
 
         for phase in block:
             if phase < 0:
@@ -85,8 +84,8 @@ def blocks_to_bytes(blocks_adj_fft,M=4):
 
     output_bytes = []
 
-    for n in range(len(output)//8):
-        byte = output[8*n:8*(n+1)]
+    for nnn in range(len(output)//8):
+        byte = output[8*nnn:8*(nnn+1)]
         byte = "0b" + byte
         byte = int(byte,0)
         output_bytes.append(byte)
