@@ -137,8 +137,6 @@ if __name__ == "__main__":
     blocks = phases_to_blocks(phases)
     blocks_fft = blocks_to_blocks_fft(blocks)
     signal = blocks_fft_to_signal(blocks_fft)
-    plt.plot(signal)
-    plt.show()
 
     print("fs:",fs,'f0:',f0,'f1:',f1,"M:",M,"block length:",block_length, 'n:',n,'d_v:',d_v,'d_c:',d_c)
 
@@ -146,7 +144,8 @@ if __name__ == "__main__":
     print("NUMBER OF BLOCKS:", len(blocks))
 
     gain = 1
-    ps.play_signal(signal*gain ,fs)
+    #ps.play_signal(signal*gain ,fs)
+    ps.save_signal(signal,fs,'test_sig.wav')
 
 
 

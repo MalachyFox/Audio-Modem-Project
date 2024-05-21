@@ -4,6 +4,7 @@ from scipy.signal import chirp
 import visualize
 import matplotlib.pyplot as plt
 import csv
+import soundfile as sf
 
 fs = 44100
 
@@ -23,10 +24,13 @@ def gen_random(samples):
 
     return signal
 
-def save_signal(signal,filename):
-    with open(filename, "w") as file:
-        csv_writer = csv.writer(file)
-        csv_writer.writerow(signal)
+def save_signal(signal,fs,filename):
+    if filename[-4:] == ".wav":
+        sf.write(filename,signal,fs)
+    else:
+        with open(filename, "w") as file:
+            csv_writer = csv.writer(file)
+            csv_writer.writerow(signal)
     return
 
 def play_signal(signal,fs=fs):

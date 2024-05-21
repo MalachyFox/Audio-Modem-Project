@@ -1,15 +1,12 @@
-from click import group
 from matplotlib.mlab import phase_spectrum
 import sounddevice as sd
 import visualize
 import numpy as np
 import scipy.signal
 import playsound
-from ctypes.util import find_library
 import matplotlib.pyplot as plt
 import decoder as d
 import encoder as e
-find_library('portaudio')
 
 seconds = 14
 fs = 44100
@@ -18,6 +15,7 @@ f0 = 1000
 block_length = 2048
 f1 = f0 + block_length
 num_blocks = 4
+record = False
 
 #generate double sync function
 sync_chirp = playsound.gen_chirp(f0,f1,fs,1)
@@ -25,17 +23,22 @@ sync = np.concatenate((sync_chirp,sync_chirp,sync_chirp))
 
 
 #start recording
-input = input('press space')
-recording = sd.rec(fs * seconds,samplerate = fs,channels=1)
-sd.wait()
-recording = recording.flatten()
+if record == True:
+    input = input('press space')
+    recording = sd.rec(fs * seconds,samplerate = fs,channels=1)
+    sd.wait()
+    recording = recording.flatten()
+    playsound.save_signal(recording,fs,'recording.csv')
+else:
+    recording = playsound.load_signal('recording.csv')
+    recording = recording.flatten()
 
 
 # find position
+len_sync_chirp = len(sync_chirp)
 correlation = scipy.signal.correlate(recording, sync)
-peak_correlation = np.max(correlation)
 position_data = np.argmax(correlation)
-position = position_data - len(sync_chirp)*2 # start of 1st chirp (no prefix)
+position = position_data - len_sync_chirp*2 # start of 1st chirp (no prefix)
 
 def CFO(sync):
     chirp1 = recording[position : position + len(sync)//2]
@@ -60,8 +63,8 @@ def CFO(sync):
 
 
 # estimate channel
-chirp1 = recording[position : position + len(sync_chirp)]
-chirp2 = recording[position + len(sync_chirp) :position+len(sync_chirp)*2]
+chirp1 = recording[position : position + len_sync_chirp]
+chirp2 = recording[position + len_sync_chirp :position+len_sync_chirp*2]
 fft_chirp1 = np.fft.fft(chirp1)
 fft_chirp2 = np.fft.fft(chirp2)
 
@@ -69,26 +72,25 @@ fft_sync_chirp = np.fft.fft(sync_chirp)
 
 channel = fft_chirp2 / fft_sync_chirp
 channel = channel[f0:f1]
-# channel_old = channel
-# channel_mag = scipy.signal.savgol_filter(np.absolute(channel),5,3)
-# channel_angle = np.angle(channel)
-# channel_zip = zip(channel_mag,channel_angle)
-# channel = [ m*np.exp(1j*a) for m, a in channel_zip]
-# channel = channel_old
-# plt.plot(np.absolute(channel_old))
-# # plt.plot(np.absolute(channel))
-# plt.show()
 channel = np.pad(channel,(f0,fs-f1))
 
-impulse = np.fft.irfft(channel)
+#impulse = np.fft.irfft(channel)
 
 
 #perform least squares on the two chirps
 x = np.linspace(f0,f1,f1-f0)
 y = np.angle(fft_chirp2[f0:f1] * np.conj(fft_chirp1[f0:f1]))
-sigma = np.std(y)
-m, c = np.polyfit(x,y,1,w=1/(sigma**2))
+m_, c_ = np.polyfit(x,y,1)
 
+resid = np.array([(y - (m_*x + c_))**2 for x, y in zip(x,y)])
+print(resid)
+m, c = np.polyfit(x,y,1,w=1/resid)
+
+plt.scatter(x,y,alpha=0.1)
+plt.plot(x,x*m_ + c_,label="1",c="b")
+plt.plot(x,x*m + c,label="2",c="r")
+plt.legend()
+plt.show()
 
 
 
@@ -125,27 +127,39 @@ while True:
         break
 
 
-
-
-
 #decode signal
 bytes_list, r_bits = d.blocks_to_bytes(blocks,4)
 
 t_bits = e.random_binary(block_length*2*num_blocks)
 
+
+#add colours
+colours = []
+for i in range(len(t_bits)//2):
+    bit = t_bits[i*2:(i+1)*2]
+    if bit == "00":
+        colours.append("r")
+    elif bit == "01":
+        colours.append("y")
+    elif bit == "11":
+        colours.append("g")
+    elif bit == "10":
+        colours.append("b")
+
 #compare signals
 
-
-for bl in range(len(blocks)):
-    r = r_bits[bl*block_length*2:(bl+1)*2*block_length]
-    t = t_bits[bl*block_length*2:(bl+1)*2*block_length]
+for b in range(len(blocks)):
+    r = r_bits[b*block_length*2:(b+1)*block_length*2]
+    t = t_bits[b*block_length*2:(b+1)*block_length*2]
     count = sum(1 for a,b in zip(r,t)if a != b) /(block_length*2) * 100
     errors = str(count)[:4] + "%"
-    print("errors:",errors)
-    view = 30
+    print(f"block {b}, {errors} errors")
+    view = 20
     print(" rec:",r[:view],"...",r[-view:])
     print("sent:",t[:view],"...",t[-view:])
+    print()
 
-for b in blocks:
-    visualize.plot_fft(b,fs,f0,f1,title=f"{errors}")
-    visualize.plot_constellation(b,title=f"{errors}")
+for i in range(num_blocks):
+    col = colours[i*block_length:(i+1)*block_length]
+    visualize.plot_fft(blocks[i],fs,f0,f1,title=f"{errors}")
+    visualize.plot_constellation(blocks[i],col,title=f"{errors}")
