@@ -17,7 +17,7 @@ import ldpc
 fs = 44100
 M = 4
 m = int(np.log2(M))
-block_length = 10000
+block_length = 16384
 data_block_length = block_length
 f0 = 1000
 f1 = f0 + block_length
@@ -95,8 +95,9 @@ def blocks_fft_to_signal(blocks_fft,fs=fs,f0=f0,f1=f1):
         
         transmission = np.concatenate((transmission,signal))
     chirp = ps.gen_chirp(f0,f1,fs,1)
-    chirp2 = ps.double_signal(chirp)
-    transmission = np.concatenate((chirp2,transmission))
+    chirp3 = ps.double_signal((chirp,chirp,chirp))
+    transmission = np.concatenate((chirp3,transmission))
+    
     return transmission
 
 def prep_ldpc_encode(binary,n=n,d_v=d_v,d_c=d_c):
@@ -151,7 +152,7 @@ if __name__ == "__main__":
     print("BINARY:",binary[:100],"...")
     print("NUMBER OF BLOCKS:", len(blocks))
 
-    gain = 1
+    gain = 2
     ps.play_signal(signal*gain ,fs)
 
 
