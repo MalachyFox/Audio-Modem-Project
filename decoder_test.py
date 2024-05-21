@@ -1,3 +1,4 @@
+from click import group
 from matplotlib.mlab import phase_spectrum
 import sounddevice as sd
 import visualize
@@ -10,13 +11,13 @@ import decoder as d
 import encoder as e
 find_library('portaudio')
 
-seconds = 8
+seconds = 14
 fs = 44100
 gain = 2
 f0 = 1000
-block_length = 16384
+block_length = 2048
 f1 = f0 + block_length
-
+num_blocks = 4
 
 #generate double sync function
 sync_chirp = playsound.gen_chirp(f0,f1,fs,1)
@@ -68,46 +69,83 @@ fft_sync_chirp = np.fft.fft(sync_chirp)
 
 channel = fft_chirp2 / fft_sync_chirp
 channel = channel[f0:f1]
+# channel_old = channel
+# channel_mag = scipy.signal.savgol_filter(np.absolute(channel),5,3)
+# channel_angle = np.angle(channel)
+# channel_zip = zip(channel_mag,channel_angle)
+# channel = [ m*np.exp(1j*a) for m, a in channel_zip]
+# channel = channel_old
+# plt.plot(np.absolute(channel_old))
+# # plt.plot(np.absolute(channel))
+# plt.show()
 channel = np.pad(channel,(f0,fs-f1))
 
 impulse = np.fft.irfft(channel)
-
-prefix_samples = fs
-block_samples = fs
-# reverse channel effects
-data = recording[position_data+prefix_samples:position_data+prefix_samples+block_samples]
-data_fft = np.fft.fft(data)
-data_fft = data_fft[f0:f1]
-data_fft = data_fft/(channel[f0:f1])
 
 
 #perform least squares on the two chirps
 x = np.linspace(f0,f1,f1-f0)
 y = np.angle(fft_chirp2[f0:f1] * np.conj(fft_chirp1[f0:f1]))
-A = np.vstack([x,np.ones(len(x))]).T
-m, c = np.linalg.lstsq(A,y,rcond=None)[0]
+sigma = np.std(y)
+m, c = np.polyfit(x,y,1,w=1/(sigma**2))
 
-#make cfo and sfo adjustment
 
-block_number = 1
 
-for i in range(len(data_fft)):
-    f =  f0 + i
-    angle = np.exp(-block_number*2*1j *(f*m+c))
-    data_fft[i] = data_fft[i] * angle
+
+# reverse channel effects
+prefix_samples = fs
+block_samples = fs
+
+blocks = []
+i=0
+while True:
+    print(i)
+    group_length = prefix_samples + block_samples
+    start = position_data + prefix_samples + group_length * i
+    end = position_data + group_length + group_length * i
+    data = recording[start:end]
+    print(start,end,len(data))
+    data_fft = np.fft.fft(data)
+    data_fft = data_fft[f0:f1]
+    data_fft = data_fft/(channel[f0:f1])
+
+    #make cfo and sfo adjustment
+
+    block_number = (i+1)*2
+
+    for k in range(len(data_fft)):
+        f =  f0 + k
+        angle = np.exp(-block_number*1j * (m*f + c))
+        data_fft[k] = data_fft[k] * angle
+
+    print(data_fft)
+    blocks.append(data_fft)
+    i += 1
+    if i == num_blocks:
+        break
+
+
+
 
 
 #decode signal
-bytes_list, r_bits = d.blocks_to_bytes([data_fft],4)
+bytes_list, r_bits = d.blocks_to_bytes(blocks,4)
 
-t_bits = e.random_binary(block_length*2)
+t_bits = e.random_binary(block_length*2*num_blocks)
 
 #compare signals
-print("   received bits:",r_bits[:30])
-print("transmitted bits:",t_bits[:30])
-count = sum(1 for a,b in zip(r_bits,t_bits) if a != b) /(block_length*2) * 100
-errors = str(count)[:4] + "%"
-print("errors:",errors)
 
-visualize.plot_fft(data_fft,fs,f0,f1,title=f"fft_{f0}_{f1}_{errors}")
-visualize.plot_constellation(data_fft,title=f"fft_{f0}_{f1}_{errors}")
+
+for bl in range(len(blocks)):
+    r = r_bits[bl*block_length*2:(bl+1)*2*block_length]
+    t = t_bits[bl*block_length*2:(bl+1)*2*block_length]
+    count = sum(1 for a,b in zip(r,t)if a != b) /(block_length*2) * 100
+    errors = str(count)[:4] + "%"
+    print("errors:",errors)
+    view = 30
+    print(" rec:",r[:view],"...",r[-view:])
+    print("sent:",t[:view],"...",t[-view:])
+
+for b in blocks:
+    visualize.plot_fft(b,fs,f0,f1,title=f"{errors}")
+    visualize.plot_constellation(b,title=f"{errors}")
