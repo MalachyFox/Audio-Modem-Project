@@ -78,9 +78,10 @@ def blocks_fft_to_signal(blocks_fft,fs=fs,f0=f0,f1=f1):
         signal_ = np.fft.irfft(block,2*f1)
          # normalise to avoid clipping
         #signal += ps.gen_sine(f0 - 1,fs,dur)# + freqs//2,fs,dur)
+        v.plot_fft(np.fft.rfft(signal_),fs)
         signal_ = np.concatenate((signal_,signal_))
         
-        #v.plot_fft(np.fft.fft(signal_),fs,0,fs)
+        
         
         transmission = np.concatenate((transmission,signal_))
     max = np.max(transmission)
@@ -137,7 +138,7 @@ if __name__ == "__main__":
     phases = symbols_to_phases(symbols)
     blocks = phases_to_blocks(phases)
     blocks_fft = blocks_to_blocks_fft(blocks)
-    #v.plot_fft(blocks_fft[0],fs)
+    v.plot_fft(blocks_fft[0],fs)
     signal = blocks_fft_to_signal(blocks_fft)
 
     print()
@@ -155,7 +156,7 @@ if __name__ == "__main__":
     # plt.show()
     gain = 1
     #ps.play_signal(signal*gain ,fs)
-    ps.save_signal(signal,fs,f'test_signals/test_signal_{f0}_{f1}_{len(blocks)}b.wav')
+    #ps.save_signal(signal,fs,f'test_signals/test_signal_{f0}_{f1}_{len(blocks)}b.wav')
 
 
 
