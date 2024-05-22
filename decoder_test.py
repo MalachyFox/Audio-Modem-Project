@@ -17,7 +17,7 @@ f0 = 500
 block_length = 10000
 f1 = f0 + block_length
 num_blocks = 4
-record = True
+record = False
 
 #generate double sync function
 sync_chirp = playsound.gen_chirp(f0,f1,fs,2*f1/fs)
@@ -41,9 +41,9 @@ len_sync_chirp = len(sync_chirp)
 print(len_sync_chirp)
 correlation = scipy.signal.correlate(recording, sync)
 position_data = np.argmax(correlation)
-position = position_data - len_sync_chirp*2# start of 1st chirp (no prefix)
-# plt.plot(correlation)
-# plt.show()
+position = position_data - len_sync_chirp*2 # start of 1st chirp (no prefix)
+plt.plot(correlation)
+plt.show()
 
 def CFO(sync):
     chirp1 = recording[position : position + len(sync)//2]
@@ -90,7 +90,7 @@ channel_raw = fft_chirp2 / fft_sync_chirp
 channel_chop = channel_raw[f0:f1]
 channel = np.concatenate((np.zeros(f0),channel_chop,[0]))
 impulse = np.fft.irfft(channel)
-#visualize.plot_channel(impulse)
+visualize.plot_channel(impulse)
 
 #perform least squares on the two chirps
 x = np.linspace(f0,f1 - 1,f1-f0)
@@ -127,8 +127,8 @@ while True:
     #data_fft *= np.exp(-1j * np.angle(chirp_adjust[f0:f1])*(i+1)*4)
     #make cfo and sfo adjustment
 
-    bm = 4*(i+1)
-    bc = 2*(i+1)       #1
+    bm = 0#4*(i+1)
+    bc = 0#2    #1
 
     for k in range(len(data_fft)):
         f =  f0 + k
