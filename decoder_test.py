@@ -66,13 +66,15 @@ def CFO(sync):
 
     return phase_diff_CFO
 
-plt.plot(recording)
-plt.show()
+# plt.plot(recording)
+# plt.show()
 # estimate channel
 chirp1 = recording[position : position + len_sync_chirp]
 chirp2 = recording[position + len_sync_chirp :position+len_sync_chirp*2]
-#plt.plot(sync_chirp)
-#plt.show()
+plt.plot(chirp1)
+plt.plot(sync_chirp,alpha=0.2)
+plt.show()
+
 
 fft_chirp1 = np.fft.rfft(chirp1)
 fft_chirp2 = np.fft.rfft(chirp2)
