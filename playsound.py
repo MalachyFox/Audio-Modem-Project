@@ -31,7 +31,7 @@ def save_signal(signal,fs,filename):
             csv_writer.writerow(signal)
     return
 
-def play_signal(signal,fs=fs):
+def play_signal(signal,fs):
     input("press enter to play")
     sd.play(signal,fs)
     sd.wait()
@@ -43,7 +43,7 @@ def load_signal(filename):
         signal = np.genfromtxt(filename,delimiter=',')
     return signal
 
-def super_sine(f_array, fs=fs,duration=1):
+def super_sine(f_array, fs,duration=1):
     print(f_array)
     t = np.arange(duration * fs)
     transmitted_signal = np.zeros(len(t))
@@ -56,7 +56,7 @@ def double_signal(signal):
 
 
 if __name__ == "__main__":
-
+    fs = 44100
     signal = gen_chirp( 1000,7500,fs,1)
     signal = double_signal(signal) * 100
     play_signal(signal,fs)
