@@ -10,7 +10,8 @@ def plot_channel(channel):
 
 def plot_fft(fft,fs,title=""):
     n_samples = len(fft)
-    x = list(range(n_samples))
+    x = np.linspace(0,fs//2,n_samples)
+    print(len(x))
     fig, ax = plt.subplots(2)
     ax[0].title.set_text('Frequency Domain')
     ax[0].set_xlabel('f / Hz')
