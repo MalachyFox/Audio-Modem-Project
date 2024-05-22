@@ -161,7 +161,7 @@ for b in range(len(blocks)):
 print(f"TOTAL ERRORS: {(str(total_errors/num_blocks))[:4]}%")
 
 
-visualize.big_plot(blocks,fs,f0,f1,colours)
+visualize.big_plot(blocks,fs,f0,f1,colours,title="test")
 
 individual = False
 if individual == True:

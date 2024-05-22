@@ -42,6 +42,7 @@ def plot_constellation(fft,colours,title=""):
 
 def big_plot(blocks,fs,f0,f1,colours,title=""):
     fig, axs = plt.subplots(2,len(blocks),sharex='row',sharey='row')
+    fig.set_size_inches(18, 6)
     for i in range(len(blocks)):
         fft = blocks[i]
         n_samples = len(fft)
@@ -56,7 +57,7 @@ def big_plot(blocks,fs,f0,f1,colours,title=""):
         l=abs(np.max(fft))*1.2
         r = np.real(fft)
         im = np.imag(fft)
-        axs[0,i].scatter(r,im,s=6,c=colours[i*len(fft):(i+1)*len(fft)],alpha=0.1)
+        axs[0,i].scatter(r,im,s=2,c=colours[i*len(fft):(i+1)*len(fft)],alpha=0.1)
         axs[0,i].axhline(0, color='gray')
         axs[0,i].axvline(0, color='gray')
         axs[0,i].axis('scaled')
@@ -64,6 +65,6 @@ def big_plot(blocks,fs,f0,f1,colours,title=""):
         l = avg * 2
         axs[0,i].set_ylim(-l, l)
         axs[0,i].set_xlim(-l, l)
-        if title != "":
-            plt.savefig(f"test_figures/{title}-big.png")
+    if title != "":
+        plt.savefig(f"test_figures/{title}-big.png",dpi=300)
     plt.show()
