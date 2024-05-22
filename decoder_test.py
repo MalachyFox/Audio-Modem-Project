@@ -14,10 +14,10 @@ seconds = 8
 fs = 44100
 gain = 1
 f0 = 500
-block_length = 1000
+block_length = 10000
 f1 = f0 + block_length
 num_blocks = 4
-record = False
+record = True
 
 #generate double sync function
 sync_chirp = playsound.gen_chirp(f0,f1,fs,2*f1/fs)
