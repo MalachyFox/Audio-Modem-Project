@@ -32,12 +32,13 @@ if record == True:
     recording = recording.flatten()
     playsound.save_signal(recording,fs,f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv')
 else:
-    recording = playsound.load_signal(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #(f'test_signals/test_sig_500_12000_4b.wav') 
+    recording = playsound.load_signal(f'test_signals/test_signal_{f0}_{f1}_{fs}_{num_blocks}b.wav')   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
     recording = recording.flatten()
 
 
 # find position
 len_sync_chirp = len(sync_chirp)
+print(len_sync_chirp)
 correlation = scipy.signal.correlate(recording, sync)
 position_data = np.argmax(correlation)
 position = position_data - len_sync_chirp*2# start of 1st chirp (no prefix)
