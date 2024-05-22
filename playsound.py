@@ -13,12 +13,10 @@ def gen_sine(f,fs,duration):
     return transmitted_signal
 
 def gen_chirp(f0,f1,fs,duration):
-    offset = 2000
-    duration = duration + offset /fs
     t = np.linspace(0, duration, int(fs * duration))  # Time array
-    transmitted_signal = chirp(t, f0/duration, duration, f1/duration, method='linear')
-    print(len(transmitted_signal))
-    return transmitted_signal
+    signal = chirp(t, f0/duration, duration, f1/duration, method='linear')
+    np.concatenate((signal,np.zeros(1000)))
+    return signal
 
 def gen_random(samples):
     signal = np.random.random(samples) * 2 - 1

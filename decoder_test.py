@@ -38,7 +38,6 @@ else:
 
 # find position
 len_sync_chirp = len(sync_chirp)
-print(len_sync_chirp)
 correlation = scipy.signal.correlate(recording, sync)
 position_data = np.argmax(correlation)
 position = position_data - len_sync_chirp*2# start of 1st chirp (no prefix)
@@ -69,26 +68,24 @@ def CFO(sync):
 # plt.plot(recording)
 # plt.show()
 # estimate channel
-chirp1 = recording[position : position + len_sync_chirp]
-chirp2 = recording[position + len_sync_chirp :position+len_sync_chirp*2]
-plt.plot(chirp1)
-plt.plot(sync_chirp,alpha=0.2)
-plt.show()
+chirp1 = recording[position : position + f1*2]
+chirp2 = recording[position + len_sync_chirp :position+len_sync_chirp + f1*2]
+
 
 
 fft_chirp1 = np.fft.rfft(chirp1)
 fft_chirp2 = np.fft.rfft(chirp2)
 
 chirp_adjust = fft_chirp2/fft_chirp1
-visualize.plot_fft(fft_chirp1,fs)
-visualize.plot_fft(fft_chirp2,fs)
+#visualize.plot_fft(fft_chirp1,fs)
+#visualize.plot_fft(fft_chirp2,fs)
 
-fft_sync_chirp = np.fft.rfft(sync_chirp)
-visualize.plot_fft(fft_sync_chirp,fs)
+fft_sync_chirp = np.fft.rfft(sync_chirp[:f1*2])
+#visualize.plot_fft(fft_sync_chirp,fs)
 
 channel_raw = fft_chirp2 / fft_sync_chirp
 channel_chop = channel_raw[f0:f1]
-channel = np.concatenate((np.zeros(f0),channel_chop,[0]))
+channel = np.concatenate((np.zeros(f0),channel_chop,np.zeros(1)))
 impulse = np.fft.irfft(channel)
 #visualize.plot_channel(impulse)
 
@@ -122,8 +119,9 @@ while True:
     end = position_data + group_length + group_length * i
     data = recording[start:end]
     data_fft = np.fft.rfft(data)
-    data_fft = data_fft/(channel)
     data_fft = data_fft[f0:f1]
+    data_fft = data_fft/(channel[f0:f1])
+    
     #data_fft *= np.exp(-1j * np.angle(chirp_adjust[f0:f1])*(i+1)*4)
     #make cfo and sfo adjustment
 
