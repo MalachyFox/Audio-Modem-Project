@@ -12,7 +12,7 @@ import encoder as e
 seconds = 8
 fs = 48000
 gain = 1
-f0 = 1000
+f0 = 500
 block_length = 11500
 f1 = f0 + block_length
 num_blocks = 4
@@ -31,7 +31,7 @@ if record == True:
     recording = recording.flatten()
     playsound.save_signal(recording,fs,f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv')
 else:
-    recording = playsound.load_signal( f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv')
+    recording = playsound.load_signal(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #(f'test_signals/test_sig_500_12000_4b.wav') 
     recording = recording.flatten()
 
 
@@ -40,6 +40,8 @@ len_sync_chirp = len(sync_chirp)
 correlation = scipy.signal.correlate(recording, sync)
 position_data = np.argmax(correlation)
 position = position_data - len_sync_chirp*2 # start of 1st chirp (no prefix)
+# plt.plot(correlation)
+# plt.show()
 
 def CFO(sync):
     chirp1 = recording[position : position + len(sync)//2]
@@ -66,31 +68,40 @@ def CFO(sync):
 # estimate channel
 chirp1 = recording[position : position + len_sync_chirp]
 chirp2 = recording[position + len_sync_chirp :position+len_sync_chirp*2]
-fft_chirp1 = np.fft.fft(chirp1)
-fft_chirp2 = np.fft.fft(chirp2)
 
-fft_sync_chirp = np.fft.fft(sync_chirp)
+# plt.plot(chirp1)
+# plt.plot(chirp2)
+# plt.show()
 
-channel = fft_chirp2 / fft_sync_chirp
-channel = channel[f0:f1]
-channel = np.pad(channel,(f0,fs-f1))
+fft_chirp1 = np.fft.rfft(chirp1)
+fft_chirp2 = np.fft.rfft(chirp2)
 
-#impulse = np.fft.irfft(channel)
+chirp_adjust = fft_chirp2/fft_chirp1
+# visualize.plot_fft(fft_chirp1,fs)
+# visualize.plot_fft(fft_chirp2,fs)
 
+fft_sync_chirp = np.fft.rfft(sync_chirp)
+#visualize.plot_fft(fft_sync_chirp,fs)
+
+channel_raw = fft_chirp2 / fft_sync_chirp
+channel_chop = channel_raw[f0:f1]
+channel = np.concatenate((np.zeros(f0),channel_chop,[0]))
+impulse = np.fft.irfft(channel_chop)
+visualize.plot_channel(impulse)
 
 #perform least squares on the two chirps
-x = np.linspace(f0,f1,f1-f0)
+x = np.linspace(f0,f1 - 1,f1-f0)
 y = np.angle(fft_chirp2[f0:f1] * np.conj(fft_chirp1[f0:f1]))
 m_, c_ = np.polyfit(x,y,1)
 
 resid = np.array([(y - (m_*x + c_))**2 for x, y in zip(x,y)])
 m, c = np.polyfit(x,y,1,w=1/resid)
 
-# plt.scatter(x,y,alpha=0.1)
-# #plt.plot(x,x*m_ + c_,label="1",c="b")
-# plt.plot(x,x*m + c,label="2",c="r")
-# plt.legend()
-# plt.show()
+plt.scatter(x,y,alpha=0.1)
+plt.plot(x,x*m_ + c_,label="1",c="b")
+plt.plot(x,x*m + c,label="2",c="r")
+plt.legend()
+plt.show()
 
 
 
@@ -106,19 +117,19 @@ while True:
     start = position_data + prefix_samples + group_length * i
     end = position_data + group_length + group_length * i
     data = recording[start:end]
-    data_fft = np.fft.fft(data)
+    data_fft = np.fft.rfft(data)
+    data_fft = data_fft/(channel)
     data_fft = data_fft[f0:f1]
-    data_fft = data_fft/(channel[f0:f1])
 
     #make cfo and sfo adjustment
 
-    bm = 2 + i*3.5   #3.3
-    bc = 2           #1
+    # bm = 4 + i*4   #3.3
+    # bc = 2       #1
 
-    for k in range(len(data_fft)):
-        f =  f0 + k
-        angle = np.exp(-1j*(m*f*bm + c*bc))
-        data_fft[k] = data_fft[k] * angle
+    # for k in range(len(data_fft)):
+    #     f =  f0 + k
+    #     angle = np.exp(-1j*(m*f*bm + c*bc))
+    #     data_fft[k] = data_fft[k] * angle
 
     blocks.append(data_fft)
     i += 1
@@ -162,7 +173,7 @@ for b in range(len(blocks)):
 print(f"TOTAL ERRORS: {(str(total_errors/num_blocks))[:4]}%")
 
 
-visualize.big_plot(blocks,fs,f0,f1,colours,title="test")
+visualize.big_plot(blocks,fs,colours,title="test")
 
 individual = False
 if individual == True:

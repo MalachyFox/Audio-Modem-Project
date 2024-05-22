@@ -8,9 +8,9 @@ def plot_channel(channel):
     plt.stem(range(len(channel)),channel)
     plt.show()
 
-def plot_fft(fft,fs_,f0=0,f1=48000,title=""):
+def plot_fft(fft,fs,title=""):
     n_samples = len(fft)
-    x = np.linspace(f0,f1,f1-f0)
+    x = list(range(n_samples))
     fig, ax = plt.subplots(2)
     ax[0].title.set_text('Frequency Domain')
     ax[0].set_xlabel('f / Hz')
@@ -40,7 +40,7 @@ def plot_constellation(fft,colours,title=""):
         plt.savefig(f"test_figures/{title}-con.png")
     plt.show()
 
-def big_plot(blocks,fs,f0,f1,colours,title=""):
+def big_plot(blocks,fs,colours,title=""):
 
     fig, axs = plt.subplots(2,len(blocks),sharex='row',sharey='row')
     fig.set_size_inches(18, 6)
@@ -51,7 +51,7 @@ def big_plot(blocks,fs,f0,f1,colours,title=""):
         col = colours[i*len(fft):(i+1)*len(fft)]
         
 
-        x = np.linspace(f0,f1,f1-f0)
+        x = list(range(len(fft)))
 
         axs[1,i].scatter(x,np.angle(fft),s=2,c=col,alpha=0.1)
         axs[1,i].set_xlabel("f / Hz")

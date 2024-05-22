@@ -6,16 +6,16 @@ import matplotlib.pyplot as plt
 import csv
 import soundfile as sf
 
-fs = 44100
+fs = 48000
 
-def gen_sine(f,fs=fs,duration=1):
+def gen_sine(f,fs,duration):
 
     t = np.arange(duration * fs)
     transmitted_signal = np.sin(2 * np.pi * t * f / fs)
     return transmitted_signal
 
-def gen_chirp(f0,f1,fs=fs,duration=1):
-    t = np.linspace(0, duration, int(fs * duration))  # Time array
+def gen_chirp(f0,f1,fs,duration):
+    t = np.linspace(0, 1, int(fs * duration))  # Time array
     transmitted_signal = chirp(t, f0, duration, f1, method='linear')
     return transmitted_signal
 
@@ -39,7 +39,10 @@ def play_signal(signal,fs=fs):
     sd.wait()
 
 def load_signal(filename):
-    signal = np.genfromtxt(filename,delimiter=',')
+    if filename[-4:] == ".wav":
+        signal, fs = sf.read(filename)
+    else:
+        signal = np.genfromtxt(filename,delimiter=',')
     return signal
 
 def super_sine(f_array, fs=fs,duration=1):
@@ -56,8 +59,8 @@ def double_signal(signal):
 
 if __name__ == "__main__":
 
-    signal = gen_chirp( 6500,7500,fs,1)
-    signal = double_signal(signal)
+    signal = gen_chirp( 1000,7500,fs,1)
+    signal = double_signal(signal) * 100
     play_signal(signal,fs)
 
     

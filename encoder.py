@@ -35,7 +35,6 @@ def correct_binary_length(binary,m=m):
     binary = binary +  (m - one)%m * "0" # makes sure binary can be divided into values
     two = len(binary)//m%data_block_length
     binary = binary +  (data_block_length - two)%(data_block_length) * m * "0" # makes sure binary can be divided into blocks
-    print(len(binary))
     return binary
 
 def binary_str_to_symbols(binary,m=m):
@@ -65,7 +64,7 @@ def phases_to_blocks(phases,data_block_length=data_block_length):
 def blocks_to_blocks_fft(blocks,fs=fs,f0=f0,f1=f1):
     blocks_fft = []
     for block in blocks:
-        block_f_d = np.zeros(f1+1,dtype=np.complex_)
+        block_f_d = np.zeros(f1 + 1,dtype=np.complex_)
         for i in range(len(block)):
             block_f_d[f0 + i] = 1 * np.cos(block[i]) + 1j * np.sin(block[i])
         blocks_fft.append(block_f_d)
@@ -76,9 +75,8 @@ def blocks_fft_to_signal(blocks_fft,fs=fs,f0=f0,f1=f1):
     transmission = []
 
     for block in blocks_fft:
-        signal_ = np.fft.irfft(block)
-        max = np.max(signal_)
-        signal_ = signal_ /max # normalise to avoid clipping
+        signal_ = np.fft.irfft(block,2*f1)
+         # normalise to avoid clipping
         #signal += ps.gen_sine(f0 - 1,fs,dur)# + freqs//2,fs,dur)
         signal_ = np.concatenate((signal_,signal_))
         
@@ -89,7 +87,8 @@ def blocks_fft_to_signal(blocks_fft,fs=fs,f0=f0,f1=f1):
     chirp = ps.gen_chirp(f0,f1,fs,f1*2/fs)
     chirp3 = np.concatenate((chirp,chirp,chirp))
     transmission_ = np.concatenate((chirp3,transmission))
-    
+    max = np.max(transmission_)
+    transmission_ = transmission_ /max
     return transmission_
 
 def prep_ldpc_encode(binary,n=n,d_v=d_v,d_c=d_c):
@@ -132,20 +131,31 @@ if __name__ == "__main__":
     binary = random_binary(block_length*m*num_blocks)
     #binary = "00000000111111110101010110101010" + binary[:-33]
     #binary = prep_ldpc_encode(binary)
+    len_binary = len(binary)
     binary = correct_binary_length(binary)
     symbols = binary_str_to_symbols(binary)
     phases = symbols_to_phases(symbols)
     blocks = phases_to_blocks(phases)
     blocks_fft = blocks_to_blocks_fft(blocks)
+    #v.plot_fft(blocks_fft[0],fs)
     signal = blocks_fft_to_signal(blocks_fft)
 
-    print("fs:",fs,'f0:',f0,'f1:',f1,"M:",M,"block length:",block_length,"time:",len(signal)/fs,'n:',n,'d_v:',d_v,'d_c:',d_c)
-    print("NUMBER OF BLOCKS:", len(blocks))
-    plt.plot(signal)
-    plt.show()
+    print()
+    print(f"fs:        ",fs)
+    print(f'f0:        ',f0)
+    print(f'f1:        ',f1)
+    print(f"num blocks:",len(blocks))
+    print(f"block len: ",block_length)
+    print(f"time:      ",f"{str(len(signal)/fs)[:4]}s")
+    print(f"size:       {str(len_binary/(8*1000))[:4]}KB")
+    print(f"rate:       {str(len_binary/len(signal))[:4]}")
+    print(f"LDPC:    n: {n}, ({d_v},{d_c})")
+    print()
+    # plt.plot(signal)
+    # plt.show()
     gain = 1
     #ps.play_signal(signal*gain ,fs)
-    ps.save_signal(signal,fs,f'test_signals/test_sig_{f0}_{f1}_{len(blocks)}b.wav')
+    ps.save_signal(signal,fs,f'test_signals/test_signal_{f0}_{f1}_{len(blocks)}b.wav')
 
 
 
