@@ -18,7 +18,7 @@ import ldpc
 fs = 48000
 M = 4
 m = int(np.log2(M))
-block_length = 11500
+block_length = 10000
 data_block_length = block_length
 f0 = 500
 f1 = f0 + block_length
@@ -83,12 +83,12 @@ def blocks_fft_to_signal(blocks_fft,fs=fs,f0=f0,f1=f1):
         #v.plot_fft(np.fft.fft(signal_),fs,0,fs)
         
         transmission = np.concatenate((transmission,signal_))
-    
+    max = np.max(transmission)
+    transmission = transmission /max
     chirp = ps.gen_chirp(f0,f1,fs,f1*2/fs)
     chirp3 = np.concatenate((chirp,chirp,chirp))
     transmission_ = np.concatenate((chirp3,transmission))
-    max = np.max(transmission_)
-    transmission_ = transmission_ /max
+   
     return transmission_
 
 def prep_ldpc_encode(binary,n=n,d_v=d_v,d_c=d_c):
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     # plt.plot(signal)
     # plt.show()
     gain = 1
-    #ps.play_signal(signal*gain ,fs)
+    ps.play_signal(signal*gain ,fs)
     ps.save_signal(signal,fs,f'test_signals/test_signal_{f0}_{f1}_{len(blocks)}b.wav')
 
 

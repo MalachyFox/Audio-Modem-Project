@@ -1,4 +1,5 @@
 from ctypes import c_buffer
+from re import I
 from matplotlib.mlab import phase_spectrum
 import sounddevice as sd
 import visualize
@@ -86,7 +87,7 @@ fft_sync_chirp = np.fft.rfft(sync_chirp)
 channel_raw = fft_chirp2 / fft_sync_chirp
 channel_chop = channel_raw[f0:f1]
 channel = np.concatenate((np.zeros(f0),channel_chop,[0]))
-impulse = np.fft.irfft(channel_chop)
+impulse = np.fft.irfft(channel)
 visualize.plot_channel(impulse)
 
 #perform least squares on the two chirps
@@ -123,13 +124,13 @@ while True:
 
     #make cfo and sfo adjustment
 
-    # bm = 4 + i*4   #3.3
-    # bc = 2       #1
+    bm = 4 + i*4   #3.3
+    bc = 2       #1
 
-    # for k in range(len(data_fft)):
-    #     f =  f0 + k
-    #     angle = np.exp(-1j*(m*f*bm + c*bc))
-    #     data_fft[k] = data_fft[k] * angle
+    for k in range(len(data_fft)):
+        f =  f0 + k
+        angle = np.exp(-1j*(m*f*bm + c*bc))
+        data_fft[k] = data_fft[k] * angle
 
     blocks.append(data_fft)
     i += 1
