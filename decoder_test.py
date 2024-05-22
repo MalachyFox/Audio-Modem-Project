@@ -41,7 +41,7 @@ len_sync_chirp = len(sync_chirp)
 print(len_sync_chirp)
 correlation = scipy.signal.correlate(recording, sync)
 position_data = np.argmax(correlation)
-position = position_data - len_sync_chirp*2# start of 1st chirp (no prefix)
+position = position_data - len_sync_chirp*2 # start of 1st chirp (no prefix)
 # plt.plot(correlation)
 # plt.show()
 
@@ -66,19 +66,22 @@ def CFO(sync):
 
     return phase_diff_CFO
 
-plt.plot(recording)
-plt.show()
+# plt.plot(recording)
+# plt.show()
 # estimate channel
 chirp1 = recording[position : position + len_sync_chirp]
 chirp2 = recording[position + len_sync_chirp :position+len_sync_chirp*2]
-#plt.plot(sync_chirp)
-#plt.show()
+plt.plot(chirp1)
+plt.plot(sync_chirp,alpha=0.2)
+plt.show()
+
 
 fft_chirp1 = np.fft.rfft(chirp1)
 fft_chirp2 = np.fft.rfft(chirp2)
 
 chirp_adjust = fft_chirp2/fft_chirp1
 # visualize.plot_fft(fft_chirp1,fs)
+plt.plot(np.absolute(fft_chirp1))
 visualize.plot_fft(fft_chirp2,fs)
 
 fft_sync_chirp = np.fft.rfft(sync_chirp)
