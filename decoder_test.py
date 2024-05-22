@@ -10,10 +10,10 @@ import decoder as d
 import encoder as e
 
 seconds = 8
-fs = 48000
+fs = 44100
 gain = 1
 f0 = 500
-block_length = 11500
+block_length = 10000
 f1 = f0 + block_length
 num_blocks = 4
 record = False
@@ -40,8 +40,8 @@ len_sync_chirp = len(sync_chirp)
 correlation = scipy.signal.correlate(recording, sync)
 position_data = np.argmax(correlation)
 position = position_data - len_sync_chirp*2 # start of 1st chirp (no prefix)
-# plt.plot(correlation)
-# plt.show()
+plt.plot(correlation)
+plt.show()
 
 def CFO(sync):
     chirp1 = recording[position : position + len(sync)//2]
@@ -64,14 +64,13 @@ def CFO(sync):
 
     return phase_diff_CFO
 
-
+plt.plot(recording)
+plt.show()
 # estimate channel
 chirp1 = recording[position : position + len_sync_chirp]
 chirp2 = recording[position + len_sync_chirp :position+len_sync_chirp*2]
-
-# plt.plot(chirp1)
-# plt.plot(chirp2)
-# plt.show()
+plt.plot(sync_chirp)
+plt.show()
 
 fft_chirp1 = np.fft.rfft(chirp1)
 fft_chirp2 = np.fft.rfft(chirp2)
@@ -81,12 +80,12 @@ chirp_adjust = fft_chirp2/fft_chirp1
 # visualize.plot_fft(fft_chirp2,fs)
 
 fft_sync_chirp = np.fft.rfft(sync_chirp)
-#visualize.plot_fft(fft_sync_chirp,fs)
+visualize.plot_fft(fft_sync_chirp,fs)
 
 channel_raw = fft_chirp2 / fft_sync_chirp
 channel_chop = channel_raw[f0:f1]
 channel = np.concatenate((np.zeros(f0),channel_chop,[0]))
-impulse = np.fft.irfft(channel_chop)
+impulse = np.fft.irfft(channel)
 visualize.plot_channel(impulse)
 
 #perform least squares on the two chirps
@@ -94,7 +93,8 @@ x = np.linspace(f0,f1 - 1,f1-f0)
 y = np.angle(fft_chirp2[f0:f1] * np.conj(fft_chirp1[f0:f1]))
 m_, c_ = np.polyfit(x,y,1)
 
-resid = np.array([(y - (m_*x + c_))**2 for x, y in zip(x,y)])
+resid = np.array([abs((y - (m_*x + c_)))**8 for x, y in zip(x,y)])
+print(resid)
 m, c = np.polyfit(x,y,1,w=1/resid)
 
 plt.scatter(x,y,alpha=0.1)
@@ -120,16 +120,16 @@ while True:
     data_fft = np.fft.rfft(data)
     data_fft = data_fft/(channel)
     data_fft = data_fft[f0:f1]
-
+    #data_fft *= np.exp(-1j * np.angle(chirp_adjust[f0:f1])*(i+1)*4)
     #make cfo and sfo adjustment
 
-    # bm = 4 + i*4   #3.3
-    # bc = 2       #1
+    bm = 2
+    bc = 2       #1
 
-    # for k in range(len(data_fft)):
-    #     f =  f0 + k
-    #     angle = np.exp(-1j*(m*f*bm + c*bc))
-    #     data_fft[k] = data_fft[k] * angle
+    for k in range(len(data_fft)):
+        f =  f0 + k
+        angle = np.exp(-1j*(m*f*bm + c*bc))
+        data_fft[k] = data_fft[k] * angle
 
     blocks.append(data_fft)
     i += 1

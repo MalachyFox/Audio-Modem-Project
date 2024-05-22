@@ -15,8 +15,8 @@ def gen_sine(f,fs,duration):
     return transmitted_signal
 
 def gen_chirp(f0,f1,fs,duration):
-    t = np.linspace(0, 1, int(fs * duration))  # Time array
-    transmitted_signal = chirp(t, f0, duration, f1, method='linear')
+    t = np.linspace(0, duration, int(fs * duration))  # Time array
+    transmitted_signal = chirp(t, f0/duration, duration, f1/duration, method='linear')
     return transmitted_signal
 
 def gen_random(samples):
