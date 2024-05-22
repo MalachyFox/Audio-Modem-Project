@@ -15,7 +15,7 @@ import ldpc
 
 # binary = BitArray(file_binary).bin
 
-fs = 48000
+fs = 44100
 M = 4
 m = int(np.log2(M))
 block_length = 10000
@@ -88,7 +88,7 @@ def blocks_fft_to_signal(blocks_fft,fs=fs,f0=f0,f1=f1):
     chirp = ps.gen_chirp(f0,f1,fs,f1*2/fs)
     chirp3 = np.concatenate((chirp,chirp,chirp))
     transmission_ = np.concatenate((chirp3,transmission))
-   
+    
     return transmission_
 
 def prep_ldpc_encode(binary,n=n,d_v=d_v,d_c=d_c):
