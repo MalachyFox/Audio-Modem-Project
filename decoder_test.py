@@ -41,7 +41,7 @@ len_sync_chirp = len(sync_chirp)
 print(len_sync_chirp)
 correlation = scipy.signal.correlate(recording, sync)
 position_data = np.argmax(correlation)
-position = position_data - len_sync_chirp*2 # start of 1st chirp (no prefix)
+position = position_data - len_sync_chirp*2# start of 1st chirp (no prefix)
 # plt.plot(correlation)
 # plt.show()
 
@@ -80,8 +80,7 @@ fft_chirp1 = np.fft.rfft(chirp1)
 fft_chirp2 = np.fft.rfft(chirp2)
 
 chirp_adjust = fft_chirp2/fft_chirp1
-# visualize.plot_fft(fft_chirp1,fs)
-plt.plot(np.absolute(fft_chirp1))
+visualize.plot_fft(fft_chirp1,fs)
 visualize.plot_fft(fft_chirp2,fs)
 
 fft_sync_chirp = np.fft.rfft(sync_chirp)
