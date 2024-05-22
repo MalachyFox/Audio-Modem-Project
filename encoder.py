@@ -155,13 +155,8 @@ if __name__ == "__main__":
     # plt.plot(signal)
     # plt.show()
     gain = 1
-<<<<<<< HEAD
     #ps.play_signal(signal*gain ,fs)
     #ps.save_signal(signal,fs,f'test_signals/test_signal_{f0}_{f1}_{len(blocks)}b.wav')
-=======
-    ps.play_signal(signal*gain ,fs)
-    ps.save_signal(signal,fs,f'test_signals/test_signal_{f0}_{f1}_{len(blocks)}b.wav')
->>>>>>> a6e6f3ce14071083deb7c4f75a74ef947ebc797a
 
 
 
