@@ -40,9 +40,9 @@ else:
 len_sync_chirp = len(sync_chirp)
 correlation = scipy.signal.correlate(recording, sync)
 position_data = np.argmax(correlation)
-position = position_data - len_sync_chirp*2# start of 1st chirp (no prefix)
-# plt.plot(correlation)
-# plt.show()
+position = position_data - len_sync_chirp*2 # start of 1st chirp (no prefix)
+plt.plot(correlation)
+plt.show()
 
 def CFO(sync):
     chirp1 = recording[position : position + len(sync)//2]
@@ -68,8 +68,8 @@ def CFO(sync):
 # plt.plot(recording)
 # plt.show()
 # estimate channel
-chirp1 = recording[position : position + f1*2]
-chirp2 = recording[position + len_sync_chirp :position+len_sync_chirp + f1*2]
+chirp1 = recording[position : position + len_sync_chirp]
+chirp2 = recording[position + len_sync_chirp :position+len_sync_chirp + len_sync_chirp]
 
 
 
@@ -80,14 +80,14 @@ chirp_adjust = fft_chirp2/fft_chirp1
 #visualize.plot_fft(fft_chirp1,fs)
 #visualize.plot_fft(fft_chirp2,fs)
 
-fft_sync_chirp = np.fft.rfft(sync_chirp[:f1*2])
+fft_sync_chirp = np.fft.rfft(sync_chirp)
 #visualize.plot_fft(fft_sync_chirp,fs)
 
 channel_raw = fft_chirp2 / fft_sync_chirp
 channel_chop = channel_raw[f0:f1]
 channel = np.concatenate((np.zeros(f0),channel_chop,np.zeros(1)))
 impulse = np.fft.irfft(channel)
-#visualize.plot_channel(impulse)
+visualize.plot_channel(impulse)
 
 #perform least squares on the two chirps
 x = np.linspace(f0,f1 - 1,f1-f0)
@@ -126,7 +126,7 @@ while True:
     #make cfo and sfo adjustment
 
     bm = 4*(i+1)
-    bc = 2*(i+1)       #1
+    bc = 2    #1
 
     for k in range(len(data_fft)):
         f =  f0 + k
