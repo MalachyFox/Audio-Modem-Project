@@ -14,9 +14,15 @@ def gen_sine(f,fs,duration):
 
 def gen_chirp(f0,f1,fs,duration):
     duration *= 2
+<<<<<<< HEAD
     duration *= 2
     t = np.linspace(0, duration, int(fs * duration))  # Time array
     signal = chirp(t, f0/duration, duration, f1/duration, method='linear')
+=======
+    t = np.linspace(0, duration, int(fs * duration))  # Time array
+    signal = chirp(t, f0/duration, duration, f1/duration, method='linear')
+    #np.concatenate((signal,np.zeros(1000)))
+>>>>>>> d288a5aead0fc17efd281b30e9344bf8e9720f9a
     return signal
 
 def gen_random(samples):
