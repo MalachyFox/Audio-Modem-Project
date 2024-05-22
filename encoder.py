@@ -143,7 +143,7 @@ if __name__ == "__main__":
     phases = symbols_to_phases(symbols)
     blocks = phases_to_blocks(phases)
     blocks_fft = blocks_to_blocks_fft(blocks)
-    v.plot_fft(blocks_fft[0],fs)
+    #v.plot_fft(blocks_fft[0],fs)
     signal = blocks_fft_to_signal(blocks_fft)
 
     print()
@@ -160,8 +160,8 @@ if __name__ == "__main__":
     # plt.plot(signal)
     # plt.show()
     gain = 1
-    #ps.play_signal(signal*gain ,fs)
-    #ps.save_signal(signal,fs,f'test_signals/test_signal_{f0}_{f1}_{fs}_{len(blocks)}b.wav')
+    ps.play_signal(signal*gain ,fs)
+    ps.save_signal(signal,fs,f'test_signals/test_signal_{f0}_{f1}_{fs}_{len(blocks)}b.wav')
 
 
 
