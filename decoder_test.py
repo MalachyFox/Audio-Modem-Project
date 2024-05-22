@@ -32,7 +32,7 @@ if record == True:
     recording = recording.flatten()
     playsound.save_signal(recording,fs,f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv')
 else:
-    recording = playsound.load_signal(f'test_signals/test_signal_{f0}_{f1}_{fs}_{num_blocks}b.wav')   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
+    recording = playsound.load_signal(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #(f'test_signals/test_signal2_{f0}_{f1}_{fs}_{num_blocks}b.wav')   # #
     recording = recording.flatten()
 
 
