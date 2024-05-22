@@ -1,3 +1,4 @@
+from ctypes import c_buffer
 from matplotlib.mlab import phase_spectrum
 import sounddevice as sd
 import visualize
@@ -8,17 +9,17 @@ import matplotlib.pyplot as plt
 import decoder as d
 import encoder as e
 
-seconds = 14
-fs = 44100
+seconds = 8
+fs = 48000
 gain = 1
 f0 = 1000
-block_length = 16384
+block_length = 11500
 f1 = f0 + block_length
 num_blocks = 4
 record = False
 
 #generate double sync function
-sync_chirp = playsound.gen_chirp(f0,f1,fs,1)
+sync_chirp = playsound.gen_chirp(f0,f1,fs,2*f1/fs)
 sync = np.concatenate((sync_chirp,sync_chirp,sync_chirp))
 
 
@@ -80,22 +81,22 @@ channel = np.pad(channel,(f0,fs-f1))
 #perform least squares on the two chirps
 x = np.linspace(f0,f1,f1-f0)
 y = np.angle(fft_chirp2[f0:f1] * np.conj(fft_chirp1[f0:f1]))
-m, c = np.polyfit(x,y,1)
+m_, c_ = np.polyfit(x,y,1)
 
-# resid = np.array([(y - (m_*x + c_))**2 for x, y in zip(x,y)])
-# m, c = np.polyfit(x,y,1,w=1/resid)
+resid = np.array([(y - (m_*x + c_))**2 for x, y in zip(x,y)])
+m, c = np.polyfit(x,y,1,w=1/resid)
 
-plt.scatter(x,y,alpha=0.1)
-#plt.plot(x,x*m_ + c_,label="1",c="b")
-plt.plot(x,x*m + c,label="2",c="r")
-plt.legend()
-plt.show()
+# plt.scatter(x,y,alpha=0.1)
+# #plt.plot(x,x*m_ + c_,label="1",c="b")
+# plt.plot(x,x*m + c,label="2",c="r")
+# plt.legend()
+# plt.show()
 
 
 
 # reverse channel effects
-prefix_samples = fs
-block_samples = fs
+prefix_samples = f1*2
+block_samples = f1*2
 
 blocks = []
 i=0
