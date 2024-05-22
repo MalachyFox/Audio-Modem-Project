@@ -19,13 +19,16 @@ fs = 48000
 M = 4
 m = int(np.log2(M))
 block_length = 10000
-data_block_length = block_length
+tracking_length = 10
+data_block_length = block_length - tracking_length*2
 f0 = 500
 f1 = f0 + block_length
 n=12
 d_v = 3
 d_c = 6
 prefix_length = 500
+chirp_duration = 0.5
+
 
 def random_binary(N):
     random.seed(1)
@@ -34,8 +37,8 @@ def random_binary(N):
 def correct_binary_length(binary,m=m):
     one = len(binary)%m
     binary = binary +  (m - one)%m * "0" # makes sure binary can be divided into values
-    two = len(binary)//m%data_block_length
-    binary = binary +  (data_block_length - two)%(data_block_length) * m * "0" # makes sure binary can be divided into blocks
+    two = len(binary)//m%block_length
+    binary = binary +  (block_length - two)%(block_length) * m * "0" # makes sure binary can be divided into blocks
     return binary
 
 def binary_str_to_symbols(binary,m=m):
@@ -77,7 +80,7 @@ def blocks_fft_to_signal(blocks_fft,fs=fs,f0=f0,f1=f1):
 
     for block in blocks_fft:
         signal_ = np.fft.irfft(block,fs)
-        print(len(signal_))
+        #print(len(signal_))
          # normalise to avoid clipping
         #signal += ps.gen_sine(f0 - 1,fs,dur)# + freqs//2,fs,dur)
         #v.plot_fft(np.fft.rfft(signal_),fs)
@@ -89,8 +92,8 @@ def blocks_fft_to_signal(blocks_fft,fs=fs,f0=f0,f1=f1):
 
     max = np.max(transmission)
     transmission = transmission /max
-    chirp = ps.gen_chirp(f0,f1,fs,1)
-    print(len(chirp))
+    chirp = ps.gen_chirp(f0,f1,fs,chirp_duration)
+    #print(len(chirp))
     chirp3 = np.concatenate((chirp[-prefix_length:],chirp,chirp))
     # v.plot_fft(np.fft.rfft(chirp),fs)
     # plt.plot(chirp)
@@ -136,13 +139,23 @@ def prep_ldpc_encode(binary,n=n,d_v=d_v,d_c=d_c):
             output += str(bit)
     return output
 
+
+def add_tracking(binary,tracking_length):
+    output = ""
+    for i in range(num_blocks):
+        output += tracking_length*m*"0"+ binary[i*m*data_block_length:(i+1)*m*data_block_length] + tracking_length*m*"0"
+    return output 
+
+
 if __name__ == "__main__":
     num_blocks = 4
-    binary = random_binary(block_length*m*num_blocks)
+    binary = random_binary(data_block_length*m*num_blocks)
     #binary = "00000000111111110101010110101010" + binary[:-33]
     #binary = prep_ldpc_encode(binary)
-    len_binary = len(binary)
+    binary = add_tracking(binary,tracking_length)
     binary = correct_binary_length(binary)
+    len_binary = len(binary)
+    print(len_binary)
     symbols = binary_str_to_symbols(binary)
     phases = symbols_to_phases(symbols)
     blocks = phases_to_blocks(phases)
