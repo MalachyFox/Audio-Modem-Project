@@ -17,7 +17,7 @@ f0 = 500
 block_length = 10000
 f1 = f0 + block_length
 num_blocks = 4
-record = True
+record = False
 
 #generate double sync function
 sync_chirp = playsound.gen_chirp(f0,f1,fs,2*f1/fs)
@@ -32,7 +32,7 @@ if record == True:
     recording = recording.flatten()
     playsound.save_signal(recording,fs,f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv')
 else:
-    recording = playsound.load_signal(f'test_signals/test_signal_{f0}_{f1}_{fs}_{num_blocks}b.wav')   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
+    recording = playsound.load_signal(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #(f'test_signals/test_signal_{f0}_{f1}_{fs}_{num_blocks}b.wav')   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
     recording = recording.flatten()
 
 
@@ -41,7 +41,7 @@ len_sync_chirp = len(sync_chirp)
 print(len_sync_chirp)
 correlation = scipy.signal.correlate(recording, sync)
 position_data = np.argmax(correlation)
-position = position_data - len_sync_chirp*2# start of 1st chirp (no prefix)
+position = position_data - len_sync_chirp*2 + 500# start of 1st chirp (no prefix)
 # plt.plot(correlation)
 # plt.show()
 

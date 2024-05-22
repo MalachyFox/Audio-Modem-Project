@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 import csv
 import soundfile as sf
 
-fs = 48000
-
 def gen_sine(f,fs,duration):
 
     t = np.arange(duration * fs)
