@@ -9,7 +9,6 @@ import playsound as ps
 import random
 from matplotlib import pyplot as plt
 from bitstring import BitArray
-import ldpc
 
 # with open('weekend-challenge/parsed.tiff',"rb") as file:
 #      file_binary = file.read()
@@ -24,7 +23,7 @@ prefix_length = 512
 N0 = 85 # abt 1000hz      (1000hz  / 48000hz) * 4096
 N1 = 850 # abt 10000 hz   (10000hz / 48000hz) * 4096
 
-num_blocks = 4
+num_blocks = 100
 tracking_length = 4
 
 n=12
@@ -94,9 +93,11 @@ def blocks_fft_to_signal(blocks_fft):
         transmission = np.concatenate((transmission,block_symbol))
 
     transmission = transmission /np.max(transmission)
-    chirp = ps.gen_chirp(N0,N1,fs,chirp_length)
+    chirp = ps.gen_chirp(N0,N1,fs,chirp_length,block_length)
     chirp = np.concatenate((chirp[-prefix_length:],chirp))
     chirp = chirp/np.max(chirp)
+    plt.plot(chirp)
+    plt.show()
     transmission = np.concatenate((chirp,transmission))
     
     return transmission
@@ -138,7 +139,7 @@ if __name__ == "__main__":
     # plt.plot(signal)
     # plt.show()
     gain = 1
-    #ps.play_signal(signal*gain ,fs)
+    ps.play_signal(signal*gain ,fs)
     ps.save_signal(signal,fs,f'test_signals/test_signal_{chirp_factor}c_{tracking_length}t_{len(blocks)}b.wav')
 
 

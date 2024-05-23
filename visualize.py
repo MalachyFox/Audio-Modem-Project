@@ -9,7 +9,7 @@ def plot_channel(channel):
     plt.plot(channel)
     plt.show()
 
-def plot_fft(fft,fs,title=""):
+def plot_fft(fft,fs,colours,title=""):
     freqs = np.fft.fftfreq(len(fft),1/fs)
     fig, ax = plt.subplots(2)
     ax[0].title.set_text('Frequency Domain')
@@ -25,10 +25,11 @@ def plot_fft(fft,fs,title=""):
     
 
 def plot_constellation(fft,colours,title=""):
+    colours = colours[:len(fft)]
     l=abs(np.max(fft))*1.2
     r = np.real(fft)
     i = np.imag(fft)
-    plt.scatter(r,i,s=6,c=colours,alpha=0.3)
+    plt.scatter(r,i,s=6,c=colours,alpha=0.5)
     plt.axhline(0, color='gray')
     plt.axvline(0, color='gray')
     plt.axis('scaled')
@@ -53,7 +54,7 @@ def big_plot(blocks,fs,colours,title=""):
 
         x = list(range(len(fft)))
 
-        axs[1,i].scatter(x,np.angle(fft),s=2,c=col,alpha=0.1)
+        axs[1,i].scatter(x,np.angle(fft),s=4,c=col,alpha=0.5)
         axs[1,i].set_xlabel("bin number")
         axs[1,i].set_ylabel('Phase / rad')
 
@@ -61,7 +62,7 @@ def big_plot(blocks,fs,colours,title=""):
         r = np.real(fft)
         im = np.imag(fft)
 
-        axs[0,i].scatter(r,im,s=2,c=col,alpha=0.1)
+        axs[0,i].scatter(r,im,s=4,c=col,alpha=0.5)
         axs[0,i].axhline(0, color='gray')
         axs[0,i].axvline(0, color='gray')
         axs[0,i].axis('scaled')
