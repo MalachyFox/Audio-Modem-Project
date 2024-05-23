@@ -11,38 +11,44 @@ import decoder as d
 import encoder as e
 
 seconds = 8
-fs = 44100
+fs = 48000
 gain = 1
 f0 = 500
 block_length = 10000
 f1 = f0 + block_length
 num_blocks = 4
-record = True
+record = False
+use_test_signal = False
+prefix_length = 500
 
 #generate double sync function
-sync_chirp = playsound.gen_chirp(f0,f1,fs,2*f1/fs)
-sync = np.concatenate((sync_chirp,sync_chirp,sync_chirp))
+sync_chirp = playsound.gen_chirp(f0,f1,fs,1)
+sync = np.concatenate((sync_chirp[-prefix_length:],sync_chirp,sync_chirp))
 
 
 #start recording
 if record == True:
-    input = input('press space')
+    input = input('press enter')
     recording = sd.rec(fs * seconds,samplerate = fs,channels=1)
     sd.wait()
     recording = recording.flatten()
     playsound.save_signal(recording,fs,f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv')
 else:
-    recording = playsound.load_signal(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #(f'test_signals/test_signal_{f0}_{f1}_{fs}_{num_blocks}b.wav')   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
+    if (use_test_signal):
+        recording = playsound.load_signal(f'test_signals/test_signal_{f0}_{f1}_{fs}_{num_blocks}b.wav')
+    else:
+        recording = playsound.load_signal(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
+    
     recording = recording.flatten()
 
 
 # find position
 len_sync_chirp = len(sync_chirp)
 correlation = scipy.signal.correlate(recording, sync)
-position_data = np.argmax(correlation)
+position_data = np.argmax(correlation) +1 # +1 moves slopes upwards CCW
 position = position_data - len_sync_chirp*2 # start of 1st chirp (no prefix)
-plt.plot(correlation)
-plt.show()
+# plt.plot(correlation)
+# plt.show()
 
 def CFO(sync):
     chirp1 = recording[position : position + len(sync)//2]
@@ -73,33 +79,28 @@ chirp2 = recording[position + len_sync_chirp :position+len_sync_chirp + len_sync
 
 
 
-fft_chirp1 = np.fft.rfft(chirp1)
-fft_chirp2 = np.fft.rfft(chirp2)
+fft_chirp1 = np.fft.rfft(chirp1,fs)
+fft_chirp2 = np.fft.rfft(chirp2,fs)
 
 chirp_adjust = fft_chirp2/fft_chirp1
-#visualize.plot_fft(fft_chirp1,fs)
-visualize.plot_fft(fft_chirp2,fs)
+# visualize.plot_fft(fft_chirp1,fs)
+# visualize.plot_fft(fft_chirp2,fs)
 
-fft_sync_chirp = np.fft.rfft(sync_chirp)
-visualize.plot_fft(fft_sync_chirp,fs)
+fft_sync_chirp = np.fft.rfft(sync_chirp,fs)
+# visualize.plot_fft(fft_sync_chirp,fs)
 
 channel_raw = fft_chirp2 / fft_sync_chirp
 channel_chop = channel_raw[f0:f1]
-channel = np.concatenate((np.zeros(f0),channel_chop,np.zeros(1)))
-impulse = np.fft.irfft(channel)
-visualize.plot_channel(impulse)
+channel = np.concatenate((np.ones(f0),channel_chop,np.ones(fs//2 - f1 + 1)))
+impulse = np.fft.irfft(channel,fs)
+#visualize.plot_channel(impulse)
 
 #perform least squares on the two chirps
 x = np.linspace(f0,f1 - 1,f1-f0)
 y = np.angle(fft_chirp2[f0:f1] * np.conj(fft_chirp1[f0:f1]))
-m_, c_ = np.polyfit(x,y,1)
-
-resid = np.array([abs((y - (m_*x + c_)))**8 for x, y in zip(x,y)])
-print(resid)
-m, c = np.polyfit(x,y,1,w=1/resid)
+m, c = np.polyfit(x,y,1)
 
 plt.scatter(x,y,alpha=0.1)
-plt.plot(x,x*m_ + c_,label="1",c="b")
 plt.plot(x,x*m + c,label="2",c="r")
 plt.legend()
 plt.show()
@@ -107,8 +108,8 @@ plt.show()
 
 
 # reverse channel effects
-prefix_samples = f1*2
-block_samples = f1*2
+prefix_samples = prefix_length # f1*2
+block_samples = fs # f1*2
 
 blocks = []
 i=0
@@ -117,16 +118,20 @@ while True:
     group_length = prefix_samples + block_samples
     start = position_data + prefix_samples + group_length * i
     end = position_data + group_length + group_length * i
-    data = recording[start:end]
+    data = recording[start :end ]
+    #print(len(data))
     data_fft = np.fft.rfft(data)
+    #visualize.plot_fft(data_fft,fs)
+    data_fft = data_fft /(channel)
+    #visualize.plot_fft(data_fft,fs)
     data_fft = data_fft[f0:f1]
-    data_fft = data_fft/(channel[f0:f1])
+    
+    #data_fft = data_fft*np.exp(-2j*np.angle(chirp_adjust[f0:f1])*(i+1))
     
     #data_fft *= np.exp(-1j * np.angle(chirp_adjust[f0:f1])*(i+1)*4)
     #make cfo and sfo adjustment
-
-    bm = 4*(i+1)
-    bc = 2    #1
+    bm = (i+1)*1#*(prefix_length+fs)/fs
+    bc = (i+1)*1#*(prefix_length+fs)/fs
 
     for k in range(len(data_fft)):
         f =  f0 + k

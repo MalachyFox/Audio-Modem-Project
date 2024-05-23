@@ -13,10 +13,10 @@ def gen_sine(f,fs,duration):
     return transmitted_signal
 
 def gen_chirp(f0,f1,fs,duration):
-    #duration *= 2
     t = np.linspace(0, duration, int(fs * duration))  # Time array
-    signal = chirp(t, f0/duration, duration, f1/duration, method='linear')
+    signal = chirp(t, f0, duration, f1, method='linear')
     #np.concatenate((signal,np.zeros(1000)))
+    #visualize.plot_fft(np.fft.rfft(signal),fs)
     return signal
 
 def gen_random(samples):
@@ -59,7 +59,7 @@ def double_signal(signal):
 
 if __name__ == "__main__":
     fs = 44100
-    signal = gen_chirp( 1000,7500,fs,1)
+    signal = gen_chirp( 500,10500,fs,10500*2/fs)
     signal = double_signal(signal) * 100
     play_signal(signal,fs)
 

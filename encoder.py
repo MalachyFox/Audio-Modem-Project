@@ -15,7 +15,7 @@ import ldpc
 
 # binary = BitArray(file_binary).bin
 
-fs = 44100
+fs = 48000
 M = 4
 m = int(np.log2(M))
 block_length = 10000
@@ -25,6 +25,7 @@ f1 = f0 + block_length
 n=12
 d_v = 3
 d_c = 6
+prefix_length = 500
 
 def random_binary(N):
     random.seed(1)
@@ -64,7 +65,7 @@ def phases_to_blocks(phases,data_block_length=data_block_length):
 def blocks_to_blocks_fft(blocks,fs=fs,f0=f0,f1=f1):
     blocks_fft = []
     for block in blocks:
-        block_f_d = np.zeros(f1 + 1,dtype=np.complex_)
+        block_f_d = np.zeros(fs//2 + 1,dtype=np.complex_)  #f1
         for i in range(len(block)):
             block_f_d[f0 + i] = 1 * np.cos(block[i]) + 1j * np.sin(block[i])
         blocks_fft.append(block_f_d)
@@ -75,19 +76,22 @@ def blocks_fft_to_signal(blocks_fft,fs=fs,f0=f0,f1=f1):
     transmission = []
 
     for block in blocks_fft:
-        signal_ = np.fft.irfft(block)
+        signal_ = np.fft.irfft(block,fs)
+        print(len(signal_))
          # normalise to avoid clipping
         #signal += ps.gen_sine(f0 - 1,fs,dur)# + freqs//2,fs,dur)
         #v.plot_fft(np.fft.rfft(signal_),fs)
-        signal_ = np.concatenate((signal_,signal_))
+        signal_ = np.concatenate((signal_[-prefix_length:],signal_))
         
         
         
         transmission = np.concatenate((transmission,signal_))
+
     max = np.max(transmission)
     transmission = transmission /max
-    chirp = ps.gen_chirp(f0,f1,fs,f1*2/fs)
-    chirp3 = np.concatenate((chirp,chirp,chirp))
+    chirp = ps.gen_chirp(f0,f1,fs,1)
+    print(len(chirp))
+    chirp3 = np.concatenate((chirp[-prefix_length:],chirp,chirp))
     # v.plot_fft(np.fft.rfft(chirp),fs)
     # plt.plot(chirp)
     # plt.show()
@@ -143,7 +147,6 @@ if __name__ == "__main__":
     phases = symbols_to_phases(symbols)
     blocks = phases_to_blocks(phases)
     blocks_fft = blocks_to_blocks_fft(blocks)
-    v.plot_fft(blocks_fft[0],fs)
     signal = blocks_fft_to_signal(blocks_fft)
 
     print()
@@ -151,6 +154,7 @@ if __name__ == "__main__":
     print(f'f0:        ',f0)
     print(f'f1:        ',f1)
     print(f"num blocks:",len(blocks))
+    print(f"sig len:   ",len(signal))
     print(f"block len: ",block_length)
     print(f"time:      ",f"{str(len(signal)/fs)[:4]}s")
     print(f"size:       {str(len_binary/(8*1000))[:4]}KB")
@@ -161,8 +165,7 @@ if __name__ == "__main__":
     # plt.show()
     gain = 1
     #ps.play_signal(signal*gain ,fs)
-    #ps.save_signal(signal,fs,f'test_signals/test_signal_{f0}_{f1}_{fs}_{len(blocks)}b.wav')
-    ps.save_signal(signal,fs,f'/Users/lit./Desktop/gf3/gf3 2/synctest522.wav')
+    ps.save_signal(signal,fs,f'test_signals/test_signal_{f0}_{f1}_{fs}_{len(blocks)}b.wav')
 
 
 
