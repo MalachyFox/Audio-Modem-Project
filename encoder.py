@@ -162,6 +162,7 @@ if __name__ == "__main__":
     gain = 1
     #ps.play_signal(signal*gain ,fs)
     #ps.save_signal(signal,fs,f'test_signals/test_signal_{f0}_{f1}_{fs}_{len(blocks)}b.wav')
+    ps.save_signal(signal,fs,f'/Users/lit./Desktop/gf3/gf3 2/synctest522.wav')
 
 
 

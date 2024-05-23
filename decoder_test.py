@@ -78,10 +78,10 @@ fft_chirp2 = np.fft.rfft(chirp2)
 
 chirp_adjust = fft_chirp2/fft_chirp1
 #visualize.plot_fft(fft_chirp1,fs)
-#visualize.plot_fft(fft_chirp2,fs)
+visualize.plot_fft(fft_chirp2,fs)
 
 fft_sync_chirp = np.fft.rfft(sync_chirp)
-#visualize.plot_fft(fft_sync_chirp,fs)
+visualize.plot_fft(fft_sync_chirp,fs)
 
 channel_raw = fft_chirp2 / fft_sync_chirp
 channel_chop = channel_raw[f0:f1]
