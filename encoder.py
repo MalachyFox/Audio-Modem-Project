@@ -16,24 +16,33 @@ from bitstring import BitArray
 # binary = BitArray(file_binary).bin
 
 
-bits_per_value = 2 # bits per constellation symbol
-fs = 48000
-block_length = 4096
-prefix_length = 512
-N0 = 85 # abt 1000hz      (1000hz  / 48000hz) * 4096
-N1 = 850 # abt 10000 hz   (10000hz / 48000hz) * 4096
 
-num_blocks = 100
+### STANDARD ###
+fs = 48000
+block_length = 4096 
+bits_per_value =2
+prefix_length = 512 
+N0 = 85
+N1 = 850
+###
+recording_time = 4
+chirp_factor = 16
 tracking_length = 20
+num_blocks = 100
+###
+used_bins = N1 - N0
+chirp_length = block_length * chirp_factor
+used_bins_data = used_bins - tracking_length
+###
+play = False
+save = True
+
 
 n=12
 d_v = 3
 d_c = 6
 
-chirp_factor = 16
-chirp_length = block_length * chirp_factor
-used_bins = N1 - N0
-used_bins_data = used_bins - tracking_length
+
 M = 2**bits_per_value
 
 
@@ -63,7 +72,6 @@ def symbols_to_phases(symbols):
         if b_phase > np.pi:
             b_phase = -(2*np.pi - b_phase)
         phases.append(b_phase)
-    #print(b_int,value,b_phase)
     return phases
 
 def phases_to_blocks(phases):
@@ -96,8 +104,6 @@ def blocks_fft_to_signal(blocks_fft):
     chirp = ps.gen_chirp(N0,N1,fs,chirp_length,block_length)
     chirp = np.concatenate((chirp[-prefix_length:],chirp))
     chirp = chirp/np.max(chirp)
-    plt.plot(chirp)
-    plt.show()
     transmission = np.concatenate((chirp,transmission))
     
     return transmission
@@ -109,21 +115,18 @@ def add_tracking(binary,tracking_length=tracking_length):
     #     output += out
     
     bl = used_bins_data*bits_per_value
-    spacing = bl//tracking_length
+    spacing = (bl//(2*tracking_length))*2
     for b in [binary[i*bl:(i+1)*bl] for i in range(num_blocks)]:
+        b_new = ""
         for s in range(tracking_length):
-            try:
-                chunk = b[s*spacing:(s+1)*spacing]
-            except:
+            
+            if s == tracking_length - 1:
                 chunk = b[s*spacing:]
+            else:
+                chunk = b[s*spacing:(s+1)*spacing]
             chunk = "00" + chunk
-            output+= chunk
-    for i in [int(x) for x in np.linspace(0,len(output),tracking_length*num_blocks,endpoint=False)]:
-        if i != "00":
-            print("ERROR",i,output[i:i+2])
-
-
-    
+            b_new += chunk
+        output += b_new
     return output 
 
 
@@ -153,14 +156,14 @@ if __name__ == "__main__":
     print(f"rate:      {str(len_binary/len(signal))[:4]}")
     #print(f"LDPC:   n: {n}, ({d_v},{d_c})")
     print()
-    # plt.plot(signal)
-    # plt.show()
+
     gain = 1
-    ps.play_signal(signal*gain ,fs)
-    ps.save_signal(signal,fs,f'test_signals/test_signal_{chirp_factor}c_{tracking_length}t_{len(blocks)}b.wav')
-
-
-
+    if save == True:
+        ps.save_signal(signal,fs,f'test_signals/test_signal_{chirp_factor}c_{tracking_length}t_{len(blocks)}b.wav')
+    if play == True:
+        ps.play_signal(signal*gain ,fs)
+    
+    
 
 
 

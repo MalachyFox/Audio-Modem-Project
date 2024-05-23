@@ -32,23 +32,20 @@ def get_fft_chirp(chirp,overlap = False):
 ### STANDARD ###
 fs = 48000
 block_length = 4096 
-bits_per_value =2
+bits_per_value = 2
 prefix_length = 512 
 N0 = 85
 N1 = 850
-
 ###
-seconds = 15
+recording_time = 14
 chirp_factor = 16
 tracking_length = 20
 num_blocks = 100
 ###
-
 used_bins = N1 - N0
 chirp_length = block_length * chirp_factor
 used_bins_data = used_bins - tracking_length
-
-
+###
 record = False
 use_test_signal = False
 
@@ -63,7 +60,7 @@ sync = np.concatenate((sync_chirp[-prefix_length:],sync_chirp))
 ### start recording ###
 if record == True:
     input = input('press enter')
-    recording = sd.rec(fs * seconds,samplerate = fs,channels=1)
+    recording = sd.rec(fs * recording_time,samplerate = fs,channels=1)
     sd.wait()
     recording = recording.flatten()
     playsound.save_signal(recording,fs,f'recordings/recording_{chirp_factor}c_{tracking_length}t_{num_blocks}b.csv')
@@ -105,8 +102,8 @@ impulse = np.fft.irfft(channel)
 
 blocks = []
 block_index = 0
-m=0
-c=0
+order = 2
+coefs = np.zeros(order)
 group_length = prefix_length + block_length
 while True:
     start = position + prefix_length + group_length * block_index
@@ -119,30 +116,21 @@ while True:
 
     for k in range(len(data_fft)):
         f =  N0 + k
-        angle = np.exp(-1j*(m*f + c))
+        angle = np.exp(-1j*(np.sum([a*f**b for a,b in zip(coefs,np.flip(list(range(order))))]))) # ignore this unholy one liner to do polynomials
         data_fft[k] = data_fft[k] * angle
-    
-    pilot_indices = [int(x) for x in np.linspace(0,len(data_fft),tracking_length,endpoint=False)]
-    pilots = [data_fft[i] for i in pilot_indices]
-    freqs = pilot_indices + N0
-    #pilots = np.concatenate(   (  np.angle(data_fft[:tracking_length]) , np.angle(data_fft[-tracking_length:])  )   )
-    #freqs = np.concatenate ( ( list(range(N0,N0+tracking_length)) , list(range(N1-tracking_length,N1)) ) )
-    m_new, c_new = np.polyfit(freqs,pilots,1)
 
-    const = 0.5
-    # if block_index == 0:
-    #     const = 0.5
-    
+    spacing = used_bins//(tracking_length)
+    pilot_indices = np.array([i*spacing for i in range(tracking_length)])
+    pilots = np.array([np.angle(data_fft[i]) for i in pilot_indices]) - np.pi/4
+    freqs = pilot_indices + N0
+    coefs_new = np.polyfit(freqs,pilots,order - 1)
+    #print(coefs_new)
     for k in range(len(data_fft)):
         f =  N0 + k
-        angle = np.exp(-1j*const*(m_new * f + c_new))
+        angle = np.exp(-1j*np.sum(([a*f**b for a,b in zip(coefs_new,np.flip(list(range(order))))])))
         data_fft[k] = data_fft[k] * angle
 
-    if block_index != 0:
-        data_fft = data_fft * np.exp(1j*np.pi/4)
-    #print(m,c)
-    m += m_new
-    c += c_new
+    coefs += coefs_new
     blocks.append(data_fft)
     block_index += 1
     if block_index == num_blocks:
@@ -153,6 +141,7 @@ while True:
 bytes_list, r_bits = d.blocks_to_bytes(blocks,4)
 t_bits = e.random_binary(used_bins_data*bits_per_value*num_blocks)
 t_bits = e.add_tracking(t_bits)
+t_bits = e.correct_binary_length(t_bits)
 
 
 
@@ -183,15 +172,18 @@ for b in range(len(blocks)):
     errors = str(count)[:4] + "%"
     print(f"block {b}, {errors} errors")
     view = 20
-    #print(" rec:",r[:view],"...",r[-view:])
-    #print("sent:",t[:view],"...",t[-view:])
-    #print()
+    print(" rec:",r[:view],"...",r[-view:])
+    print("sent:",t[:view],"...",t[-view:])
+    print()
 print(f"TOTAL ERRORS: {(str(total_errors/num_blocks))[:4]}%")
 
 # plt.plot(error_list)
 # plt.show()
+
+
+
 ### view plots ###
-visualize.big_plot(blocks[:10],fs,colours,title="test")
+visualize.big_plot(blocks[:10],fs,title="test",colours=colours)
 
 full_range = []
 for b in blocks:
@@ -199,5 +191,5 @@ for b in blocks:
 
 
 #visualize.plot_fft(full_range,fs,colours)
-visualize.plot_constellation(full_range,colours)
+visualize.plot_constellation(full_range,colours=colours)
 

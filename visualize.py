@@ -24,8 +24,7 @@ def plot_fft(fft,fs,colours='b',title=""):
     plt.show()
     
 
-def plot_constellation(fft,colours,title=""):
-    colours = colours[:len(fft)]
+def plot_constellation(fft,colours="b",title=""):
     l=abs(np.max(fft))*1.2
     r = np.real(fft)
     i = np.imag(fft)
@@ -54,7 +53,7 @@ def big_plot(blocks,fs,colours,title=""):
 
         x = list(range(len(fft)))
 
-        axs[1,i].scatter(x,np.angle(fft),s=4,c=col,alpha=0.5)
+        axs[1,i].scatter(x,np.angle(fft),s=4,alpha=0.5,c=col,)
         axs[1,i].set_xlabel("bin number")
         axs[1,i].set_ylabel('Phase / rad')
 
@@ -62,7 +61,7 @@ def big_plot(blocks,fs,colours,title=""):
         r = np.real(fft)
         im = np.imag(fft)
 
-        axs[0,i].scatter(r,im,s=4,c=col,alpha=0.5)
+        axs[0,i].scatter(r,im,s=4,alpha=0.5,c=col)
         axs[0,i].axhline(0, color='gray')
         axs[0,i].axvline(0, color='gray')
         axs[0,i].axis('scaled')
