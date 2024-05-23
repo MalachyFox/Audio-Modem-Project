@@ -24,7 +24,7 @@ N0 = 85 # abt 1000hz      (1000hz  / 48000hz) * 4096
 N1 = 850 # abt 10000 hz   (10000hz / 48000hz) * 4096
 
 num_blocks = 100
-tracking_length = 4
+tracking_length = 20
 
 n=12
 d_v = 3
@@ -33,7 +33,7 @@ d_c = 6
 chirp_factor = 16
 chirp_length = block_length * chirp_factor
 used_bins = N1 - N0
-used_bins_data = used_bins - tracking_length*2
+used_bins_data = used_bins - tracking_length
 M = 2**bits_per_value
 
 
@@ -102,11 +102,28 @@ def blocks_fft_to_signal(blocks_fft):
     
     return transmission
 
-def add_tracking(binary):
+def add_tracking(binary,tracking_length=tracking_length):
     output = ""
-    for i in range(num_blocks):
-        out = tracking_length*bits_per_value*"0"+ binary[i*bits_per_value*used_bins_data:(i+1)*bits_per_value*used_bins_data] + tracking_length*bits_per_value*"0"
-        output += out
+    # for i in range(num_blocks):
+    #     out = tracking_length*bits_per_value*"0"+ binary[i*bits_per_value*used_bins_data:(i+1)*bits_per_value*used_bins_data] + tracking_length*bits_per_value*"0"
+    #     output += out
+    
+    bl = used_bins_data*bits_per_value
+    spacing = bl//tracking_length
+    for b in [binary[i*bl:(i+1)*bl] for i in range(num_blocks)]:
+        for s in range(tracking_length):
+            try:
+                chunk = b[s*spacing:(s+1)*spacing]
+            except:
+                chunk = b[s*spacing:]
+            chunk = "00" + chunk
+            output+= chunk
+    for i in [int(x) for x in np.linspace(0,len(output),tracking_length*num_blocks,endpoint=False)]:
+        if i != "00":
+            print("ERROR",i,output[i:i+2])
+
+
+    
     return output 
 
 

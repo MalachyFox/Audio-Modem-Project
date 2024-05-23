@@ -9,7 +9,7 @@ def plot_channel(channel):
     plt.plot(channel)
     plt.show()
 
-def plot_fft(fft,fs,colours,title=""):
+def plot_fft(fft,fs,colours='b',title=""):
     freqs = np.fft.fftfreq(len(fft),1/fs)
     fig, ax = plt.subplots(2)
     ax[0].title.set_text('Frequency Domain')
@@ -29,7 +29,7 @@ def plot_constellation(fft,colours,title=""):
     l=abs(np.max(fft))*1.2
     r = np.real(fft)
     i = np.imag(fft)
-    plt.scatter(r,i,s=6,c=colours,alpha=0.5)
+    plt.scatter(r,i,s=2,c=colours,alpha=0.5)
     plt.axhline(0, color='gray')
     plt.axvline(0, color='gray')
     plt.axis('scaled')

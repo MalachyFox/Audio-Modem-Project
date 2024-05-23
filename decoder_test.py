@@ -7,12 +7,20 @@ import matplotlib.pyplot as plt
 import decoder as d
 import encoder as e
 
-def get_fft_chirp(chirp):
+def get_fft_chirp(chirp,overlap = False):
     fft_chirp = np.zeros(block_length//2,dtype=np.complex_)
-    for i in range(chirp_factor):
-        partial_chirp = chirp[i*block_length:(i+1)*block_length]
-        fft_partial_chirp = np.fft.rfft(partial_chirp)[:-1]
-        fft_chirp += fft_partial_chirp
+    if overlap == True:
+        for i in range(chirp_factor* 2 - 1):
+            partial_chirp = chirp[i*block_length//2:(i+2)*block_length//2]
+            fft_partial_chirp = np.fft.rfft(partial_chirp)[:-1]
+            fft_chirp += fft_partial_chirp
+            #visualize.plot_fft(fft_chirp,fs)
+    else:
+        for i in range(chirp_factor):
+            partial_chirp = chirp[i*block_length:(i+1)*block_length]
+            fft_partial_chirp = np.fft.rfft(partial_chirp)[:-1]
+            fft_chirp += fft_partial_chirp
+
     return fft_chirp
 
 
@@ -32,13 +40,13 @@ N1 = 850
 ###
 seconds = 15
 chirp_factor = 16
-tracking_length = 4
+tracking_length = 20
 num_blocks = 100
 ###
 
 used_bins = N1 - N0
 chirp_length = block_length * chirp_factor
-used_bins_data = used_bins - tracking_length*2
+used_bins_data = used_bins - tracking_length
 
 
 record = False
@@ -72,7 +80,7 @@ print("done recording")
 ### find position ###
 len_sync_chirp = len(sync_chirp)
 correlation = scipy.signal.correlate(recording, sync)
-position = np.argmax(correlation) # +1 moves slopes upwards CCW
+position = np.argmax(correlation) + 1# +1 moves slopes upwards CCW
 
 # plt.plot(correlation)
 # plt.show()
@@ -114,8 +122,11 @@ while True:
         angle = np.exp(-1j*(m*f + c))
         data_fft[k] = data_fft[k] * angle
     
-    pilots = np.concatenate(   (  np.angle(data_fft[:tracking_length]) , np.angle(data_fft[-tracking_length:])  )   )
-    freqs = np.concatenate ( ( list(range(N0,N0+tracking_length)) , list(range(N1-tracking_length,N1)) ) )
+    pilot_indices = [int(x) for x in np.linspace(0,len(data_fft),tracking_length,endpoint=False)]
+    pilots = [data_fft[i] for i in pilot_indices]
+    freqs = pilot_indices + N0
+    #pilots = np.concatenate(   (  np.angle(data_fft[:tracking_length]) , np.angle(data_fft[-tracking_length:])  )   )
+    #freqs = np.concatenate ( ( list(range(N0,N0+tracking_length)) , list(range(N1-tracking_length,N1)) ) )
     m_new, c_new = np.polyfit(freqs,pilots,1)
 
     const = 0.5
@@ -129,7 +140,7 @@ while True:
 
     if block_index != 0:
         data_fft = data_fft * np.exp(1j*np.pi/4)
-    print(m,c)
+    #print(m,c)
     m += m_new
     c += c_new
     blocks.append(data_fft)
@@ -140,7 +151,7 @@ while True:
 
 ### decode signal ###
 bytes_list, r_bits = d.blocks_to_bytes(blocks,4)
-t_bits = e.random_binary(used_bins_data*2*num_blocks)
+t_bits = e.random_binary(used_bins_data*bits_per_value*num_blocks)
 t_bits = e.add_tracking(t_bits)
 
 
