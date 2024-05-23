@@ -1,6 +1,3 @@
-from ctypes import c_buffer
-from re import I
-from matplotlib.mlab import phase_spectrum
 import sounddevice as sd
 import visualize
 import numpy as np
@@ -12,22 +9,30 @@ import encoder as e
 
 
 
-seconds = 8
+seconds = 5
 fs = 48000
+block_length = 4096 # 10000
+chirp_length = block_length
+tracking_length = 4 # 100
+prefix_length = 512 # 500
+N0 = 85
+N1 = 850
+used_bins = N1 - N0
+used_bins_data = used_bins - tracking_length*2
+
+num_blocks = 2
+
+bits_per_value =2
 gain = 1
-f0 = 500
-block_length = 10000
-f1 = f0 + block_length
-num_blocks = 4
+
 record = False
-use_test_signal = False
-prefix_length = 500
+use_test_signal = True
 
 
 
 ### sync function ###
-sync_chirp = playsound.gen_chirp(f0,f1,fs,0.5)
-sync = np.concatenate((sync_chirp[-prefix_length:],sync_chirp,sync_chirp))
+sync_chirp = playsound.gen_chirp(N0,N1,fs,chirp_length)
+sync = np.concatenate((sync_chirp[-prefix_length:],sync_chirp))
 
 
 
@@ -37,88 +42,71 @@ if record == True:
     recording = sd.rec(fs * seconds,samplerate = fs,channels=1)
     sd.wait()
     recording = recording.flatten()
-    playsound.save_signal(recording,fs,f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv')
+    playsound.save_signal(recording,fs,f'recordings/recording_{tracking_length}t_{num_blocks}b.csv')
 else:
     if (use_test_signal):
-        recording = playsound.load_signal(f'test_signals/test_signal_{f0}_{f1}_{fs}_{num_blocks}b.wav')
+        recording = playsound.load_signal(f'test_signals/test_signal_{tracking_length}t_{num_blocks}b.wav')
     else:
-        recording = playsound.load_signal(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
+        recording = playsound.load_signal(f'recordings/recording_{tracking_length}t_{num_blocks}b.csv') #   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
     
     recording = recording.flatten()
-
+print("done recording")
 
 
 ### find position ###
 len_sync_chirp = len(sync_chirp)
 correlation = scipy.signal.correlate(recording, sync)
-position_data = np.argmax(correlation) +1 # +1 moves slopes upwards CCW
-position = position_data - len_sync_chirp*2 # start of 1st chirp (no prefix)
+position = np.argmax(correlation) +1 # +1 moves slopes upwards CCW
 
-# plt.plot(correlation)
-# plt.show()
-# plt.plot(recording)
-# plt.show()
-
-
+plt.plot(correlation)
+plt.show()
 
 ### estimate channel ###
-chirp1 = recording[position : position + len_sync_chirp]
-chirp2 = recording[position + len_sync_chirp :position+len_sync_chirp + len_sync_chirp]
-
-fft_chirp1 = np.fft.rfft(chirp1,fs)
-fft_chirp2 = np.fft.rfft(chirp2,fs)
-fft_sync_chirp = np.fft.rfft(sync_chirp,fs)
-# visualize.plot_fft(fft_chirp1,fs)
-# visualize.plot_fft(fft_chirp2,fs)
-# visualize.plot_fft(fft_sync_chirp,fs)
-
-#chirp_adjust = fft_chirp2/fft_chirp1
-
-channel_raw = fft_chirp2 / fft_sync_chirp
-channel_chop = channel_raw[f0:f1]
-channel = np.concatenate((np.ones(f0),channel_chop,np.ones(fs//2 - f1 + 1)))
-impulse = np.fft.irfft(channel,fs)
-#visualize.plot_channel(impulse)
-
-
-
-
-### perform least squares on the two chirps ###
-x = np.linspace(f0,f1 - 1,f1-f0)
-y = np.angle(fft_chirp2[f0:f1] * np.conj(fft_chirp1[f0:f1]))
-m, c = np.polyfit(x,y,1)
-
-plt.scatter(x,y,alpha=0.1)
-plt.plot(x,x*m + c,label="2",c="r")
-plt.legend()
-plt.show()
+chirp = recording[position - len_sync_chirp :position]
+#chirp *= scipy.signal.windows.hamming(block_length)
+fft_chirp = np.fft.rfft(chirp)
+fft_sync_chirp = np.fft.rfft(sync_chirp)
+channel_raw = fft_chirp / fft_sync_chirp
+channel_chop = channel_raw[N0:N1] # maybe not useful
+channel = np.concatenate((np.zeros(N0),channel_chop,np.zeros(block_length//2- N1)))
+impulse = np.fft.irfft(channel)
+visualize.plot_channel(impulse)
 
 
 
 ### reverse channel effects ###
-prefix_samples = prefix_length
-block_samples = fs
 
 blocks = []
 i=0
+m=0
+c=0
+group_length = prefix_length + block_length
 while True:
-    group_length = prefix_samples + block_samples
-    start = position_data + prefix_samples + group_length * i
-    end = position_data + group_length + group_length * i
+    start = position + prefix_length + group_length * i
+    end = position + group_length + group_length * i
     data = recording[start:end]
 
     data_fft = np.fft.rfft(data)
-    data_fft = data_fft /(channel)
-    data_fft = data_fft[f0:f1]
+    data_fft = data_fft[N0:N1]
+    data_fft = data_fft/channel_chop
 
-    bm = (i+1)*1
-    bc = (i+1)*1
+    # for k in range(len(data_fft)):
+    #     f =  f0 + k
+    #     angle = np.exp(-1j*(m*f + c))
+    #     data_fft[k] = data_fft[k] * angle
 
-    for k in range(len(data_fft)):
-        f =  f0 + k
-        angle = np.exp(-1j*(m*f*bm + c*bc))
-        data_fft[k] = data_fft[k] * angle
+    # start = np.mean(np.angle(data_fft[:tracking_length]))
+    # end = np.mean(np.angle(data_fft[-tracking_length:]))
+    # m2 = (end -start) / (f1-f0-tracking_length)
+    # c2 = 0 - m2*(f0+tracking_length//2)
 
+    # for k in range(len(data_fft)):
+    #     f =  f0 + k
+    #     angle = np.exp(-1j*(m2*f + c2))
+    #     data_fft[k] = data_fft[k] * angle
+
+    # m+= m2
+    # c+= c2
     blocks.append(data_fft)
     i += 1
     if i == num_blocks:
@@ -127,14 +115,15 @@ while True:
 
 ### decode signal ###
 bytes_list, r_bits = d.blocks_to_bytes(blocks,4)
-t_bits = e.random_binary(block_length*2*num_blocks)
+t_bits = e.random_binary(used_bins_data*2*num_blocks)
+t_bits = e.add_tracking(t_bits)
 
 
 
-### add colours ###
+### add colours ###         # not scalable for M-ary yet
 colours = []
-for i in range(len(t_bits)//2):
-    bit = t_bits[i*2:(i+1)*2]
+for i in range(len(t_bits)//bits_per_value):
+    bit = t_bits[i*bits_per_value:(i+1)*bits_per_value]
     if bit == "00":
         colours.append("r")
     elif bit == "01":
@@ -148,21 +137,23 @@ for i in range(len(t_bits)//2):
 
 ### compare signals ###
 total_errors = 0
+error_list = []
 for b in range(len(blocks)):
-    r = r_bits[b*block_length*2:(b+1)*block_length*2]
-    t = t_bits[b*block_length*2:(b+1)*block_length*2]
-    count = sum(1 for a,b in zip(r,t)if a != b) /(block_length*2) * 100
+    r = r_bits[b*used_bins*2:(b+1)*used_bins*2]
+    t = t_bits[b*used_bins*2:(b+1)*used_bins*2]
+    count = sum(1 for a,b in zip(r,t)if a != b) /(used_bins*bits_per_value) * 100
+    error_list.append(count)
     total_errors += count
     errors = str(count)[:4] + "%"
     print(f"block {b}, {errors} errors")
     view = 20
-    print(" rec:",r[:view],"...",r[-view:])
-    print("sent:",t[:view],"...",t[-view:])
-    print()
+    #print(" rec:",r[:view],"...",r[-view:])
+    #print("sent:",t[:view],"...",t[-view:])
+    #print()
 print(f"TOTAL ERRORS: {(str(total_errors/num_blocks))[:4]}%")
 
-
-
+plt.plot(error_list)
+plt.show()
 ### view plots ###
 visualize.big_plot(blocks,fs,colours,title="test")
 

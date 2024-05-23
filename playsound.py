@@ -12,16 +12,13 @@ def gen_sine(f,fs,duration):
     transmitted_signal = np.sin(2 * np.pi * t * f / fs)
     return transmitted_signal
 
-def gen_chirp(f0,f1,fs,duration):
-    t = np.linspace(0, duration, int(fs * duration))  # Time array
-    signal = chirp(t, f0, duration, f1, method='linear')
-    #np.concatenate((signal,np.zeros(1000)))
-    #visualize.plot_fft(np.fft.rfft(signal),fs)
+def gen_chirp(N0,N1,fs,num_samples):
+    t = np.linspace(0, num_samples/fs, num_samples,endpoint=False)  # Time array
+    signal = chirp(t, N0*fs, num_samples/fs, N1*fs, method='linear')
     return signal
 
 def gen_random(samples):
     signal = np.random.random(samples) * 2 - 1
-
     return signal
 
 def save_signal(signal,fs,filename):

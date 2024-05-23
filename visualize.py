@@ -5,19 +5,18 @@ import matplotlib.pyplot as plt
 import datetime
 
 def plot_channel(channel):
-    plt.stem(range(len(channel)),channel)
+    #plt.stem(range(len(channel)),channel)
+    plt.plot(channel)
     plt.show()
 
 def plot_fft(fft,fs,title=""):
-    n_samples = len(fft)
-    x = np.linspace(0,fs//2,n_samples)
-    print(len(x))
+    freqs = np.fft.fftfreq(len(fft),1/fs)
     fig, ax = plt.subplots(2)
     ax[0].title.set_text('Frequency Domain')
     ax[0].set_xlabel('f / Hz')
     ax[0].set_ylabel('Log10 Ambplitude')
-    ax[0].plot(x,np.log(np.absolute(fft)))
-    ax[1].scatter(x,np.angle(fft),s=4)
+    ax[0].plot(freqs,np.log10(np.absolute(fft)))
+    ax[1].scatter(freqs,np.angle(fft),s=4)
     ax[1].set_xlabel("f / Hz")
     ax[1].set_ylabel('Phase / rad')
     if title != "":
@@ -55,7 +54,7 @@ def big_plot(blocks,fs,colours,title=""):
         x = list(range(len(fft)))
 
         axs[1,i].scatter(x,np.angle(fft),s=2,c=col,alpha=0.1)
-        axs[1,i].set_xlabel("f / Hz")
+        axs[1,i].set_xlabel("bin number")
         axs[1,i].set_ylabel('Phase / rad')
 
 
