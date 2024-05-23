@@ -21,18 +21,18 @@ bits_per_value = 2 # bits per constellation symbol
 fs = 48000
 block_length = 4096
 prefix_length = 512
-N0 = 85 # abt 1000hz
-N1 = 850 # abt 10000 hz
+N0 = 85 # abt 1000hz      (1000hz  / 48000hz) * 4096
+N1 = 850 # abt 10000 hz   (10000hz / 48000hz) * 4096
 
-num_blocks = 100
+num_blocks = 4
 tracking_length = 4
 
 n=12
 d_v = 3
 d_c = 6
 
-
-chirp_length = block_length * 8
+chirp_factor = 16
+chirp_length = block_length * chirp_factor
 used_bins = N1 - N0
 used_bins_data = used_bins - tracking_length*2
 M = 2**bits_per_value
@@ -90,7 +90,6 @@ def blocks_fft_to_signal(blocks_fft):
     transmission = []
     for block in blocks_fft:
         block_symbol = np.fft.irfft(block)
-        print(len(block_symbol))
         block_symbol = np.concatenate((block_symbol[-prefix_length:],block_symbol))
         transmission = np.concatenate((transmission,block_symbol))
 
@@ -140,7 +139,7 @@ if __name__ == "__main__":
     # plt.show()
     gain = 1
     #ps.play_signal(signal*gain ,fs)
-    ps.save_signal(signal,fs,f'test_signals/test_signal_{tracking_length}t_{len(blocks)}b.wav')
+    ps.save_signal(signal,fs,f'test_signals/test_signal_{chirp_factor}c_{tracking_length}t_{len(blocks)}b.wav')
 
 
 

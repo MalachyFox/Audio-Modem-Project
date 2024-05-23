@@ -7,12 +7,23 @@ import matplotlib.pyplot as plt
 import decoder as d
 import encoder as e
 
+def get_fft_chirp(chirp):
+    fft_chirp = np.zeros(block_length//2,dtype=np.complex_)
+    for i in range(chirp_factor):
+        partial_chirp = chirp[i*block_length:(i+1)*block_length]
+        fft_partial_chirp = np.fft.rfft(partial_chirp)[:-1]
+        fft_chirp += fft_partial_chirp
+    return fft_chirp
+
+
+
 
 
 seconds = 5
 fs = 48000
 block_length = 4096 # 10000
-chirp_length = block_length
+chirp_factor = 16
+chirp_length = block_length * chirp_factor
 tracking_length = 4 # 100
 prefix_length = 512 # 500
 N0 = 85
@@ -20,7 +31,7 @@ N1 = 850
 used_bins = N1 - N0
 used_bins_data = used_bins - tracking_length*2
 
-num_blocks = 2
+num_blocks = 4
 
 bits_per_value =2
 gain = 1
@@ -42,12 +53,12 @@ if record == True:
     recording = sd.rec(fs * seconds,samplerate = fs,channels=1)
     sd.wait()
     recording = recording.flatten()
-    playsound.save_signal(recording,fs,f'recordings/recording_{tracking_length}t_{num_blocks}b.csv')
+    playsound.save_signal(recording,fs,f'recordings/recording_{chirp_factor}c_{tracking_length}t_{num_blocks}b.csv')
 else:
     if (use_test_signal):
-        recording = playsound.load_signal(f'test_signals/test_signal_{tracking_length}t_{num_blocks}b.wav')
+        recording = playsound.load_signal(f'test_signals/test_signal_{chirp_factor}c_{tracking_length}t_{num_blocks}b.wav')
     else:
-        recording = playsound.load_signal(f'recordings/recording_{tracking_length}t_{num_blocks}b.csv') #   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
+        recording = playsound.load_signal(f'recordings/recording_{chirp_factor}c_{tracking_length}t_{num_blocks}b.csv') #   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
     
     recording = recording.flatten()
 print("done recording")
@@ -64,11 +75,13 @@ plt.show()
 ### estimate channel ###
 chirp = recording[position - len_sync_chirp :position]
 #chirp *= scipy.signal.windows.hamming(block_length)
-fft_chirp = np.fft.rfft(chirp)
-fft_sync_chirp = np.fft.rfft(sync_chirp)
-channel_raw = fft_chirp / fft_sync_chirp
-channel_chop = channel_raw[N0:N1] # maybe not useful
-channel = np.concatenate((np.zeros(N0),channel_chop,np.zeros(block_length//2- N1)))
+fft_chirp = get_fft_chirp(chirp)
+
+fft_sync_chirp = get_fft_chirp(sync_chirp)
+
+channel = fft_chirp/fft_sync_chirp
+channel = channel[N0:N1] # maybe not useful
+channel = np.concatenate((np.ones(N0),channel,np.ones(block_length//2- N1)))
 impulse = np.fft.irfft(channel)
 visualize.plot_channel(impulse)
 
@@ -88,7 +101,7 @@ while True:
 
     data_fft = np.fft.rfft(data)
     data_fft = data_fft[N0:N1]
-    data_fft = data_fft/channel_chop
+    data_fft = data_fft/(channel[N0:N1])
 
     # for k in range(len(data_fft)):
     #     f =  f0 + k
