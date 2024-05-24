@@ -28,12 +28,12 @@ def plot_constellation(fft,colours="b",title=""):
     l=abs(np.max(fft))*1.2
     r = np.real(fft)
     i = np.imag(fft)
-    plt.scatter(r,i,s=2,c=colours,alpha=0.5)
+    plt.scatter(r,i,s=2,c=colours,alpha=0.1)
     plt.axhline(0, color='gray')
     plt.axvline(0, color='gray')
     plt.axis('scaled')
     avg = np.average(np.absolute(fft))
-    l = avg * 2
+    l = avg * 3
     plt.ylim(-l, l)
     plt.xlim(-l, l)
     if title != "":

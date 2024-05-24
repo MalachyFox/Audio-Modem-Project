@@ -1,7 +1,7 @@
 import sounddevice as sd
 import visualize
 import numpy as np
-import scipy.signal
+import scipy
 import playsound
 import matplotlib.pyplot as plt
 import decoder as d
@@ -12,19 +12,16 @@ def get_fft_chirp(chirp,overlap = False):
     if overlap == True:
         for i in range(chirp_factor* 2 - 1):
             partial_chirp = chirp[i*block_length//2:(i+2)*block_length//2]
+            partial_chirp *= scipy.signal.windows.hamming(block_length)
             fft_partial_chirp = np.fft.rfft(partial_chirp)[:-1]
             fft_chirp += fft_partial_chirp
-            #visualize.plot_fft(fft_chirp,fs)
     else:
         for i in range(chirp_factor):
             partial_chirp = chirp[i*block_length:(i+1)*block_length]
             fft_partial_chirp = np.fft.rfft(partial_chirp)[:-1]
             fft_chirp += fft_partial_chirp
 
-    return fft_chirp
-
-
-
+    return fft_chirp/np.max(fft_chirp)
 
 
 
@@ -37,10 +34,10 @@ prefix_length = 512
 N0 = 85
 N1 = 850
 ###
-recording_time = 14
+recording_time = 100
 chirp_factor = 16
-tracking_length = 20
-num_blocks = 100
+tracking_length = 15
+num_blocks = 1000
 ###
 used_bins = N1 - N0
 chirp_length = block_length * chirp_factor
@@ -77,10 +74,9 @@ print("done recording")
 ### find position ###
 len_sync_chirp = len(sync_chirp)
 correlation = scipy.signal.correlate(recording, sync)
-position = np.argmax(correlation) + 1# +1 moves slopes upwards CCW
+position = np.argmax(correlation) + 1 # +1 moves slopes upwards CCW
 
-# plt.plot(correlation)
-# plt.show()
+
 
 ### estimate channel ###
 chirp = recording[position - len_sync_chirp :position]
@@ -94,18 +90,17 @@ channel = fft_chirp/fft_sync_chirp
 channel = channel[N0:N1] # maybe not useful
 channel = np.concatenate((np.ones(N0),channel,np.ones(block_length//2- N1)))
 impulse = np.fft.irfft(channel)
-#visualize.plot_channel(impulse)
 
 
 
 ### reverse channel effects ###
-
 blocks = []
 block_index = 0
 order = 2
 coefs = np.zeros(order)
 group_length = prefix_length + block_length
 while True:
+    print(coefs)
     start = position + prefix_length + group_length * block_index
     end = position + group_length + group_length * block_index
     data = recording[start:end]
@@ -121,10 +116,9 @@ while True:
 
     spacing = used_bins//(tracking_length)
     pilot_indices = np.array([i*spacing for i in range(tracking_length)])
-    pilots = np.array([np.angle(data_fft[i]) for i in pilot_indices]) - np.pi/4
+    pilots = np.array([np.angle(data_fft[i]) for i in pilot_indices]) - np.pi/4 # or array of pilot locations
     freqs = pilot_indices + N0
     coefs_new = np.polyfit(freqs,pilots,order - 1)
-    #print(coefs_new)
     for k in range(len(data_fft)):
         f =  N0 + k
         angle = np.exp(-1j*np.sum(([a*f**b for a,b in zip(coefs_new,np.flip(list(range(order))))])))
@@ -138,7 +132,7 @@ while True:
 
 
 ### decode signal ###
-bytes_list, r_bits = d.blocks_to_bytes(blocks,4)
+bytes_list, r_bits = d.blocks_to_bytes(blocks)
 t_bits = e.random_binary(used_bins_data*bits_per_value*num_blocks)
 t_bits = e.add_tracking(t_bits)
 t_bits = e.correct_binary_length(t_bits)
@@ -172,18 +166,17 @@ for b in range(len(blocks)):
     errors = str(count)[:4] + "%"
     print(f"block {b}, {errors} errors")
     view = 20
-    print(" rec:",r[:view],"...",r[-view:])
-    print("sent:",t[:view],"...",t[-view:])
-    print()
+    # print(" rec:",r[:view],"...",r[-view:])
+    # print("sent:",t[:view],"...",t[-view:])
+    # print()
 print(f"TOTAL ERRORS: {(str(total_errors/num_blocks))[:4]}%")
 
-# plt.plot(error_list)
-# plt.show()
+
 
 
 
 ### view plots ###
-visualize.big_plot(blocks[:10],fs,title="test",colours=colours)
+visualize.big_plot([blocks[0],blocks[500],blocks[999]],fs,title="test",colours=np.concatenate((colours[0:used_bins],colours[500*used_bins:501*used_bins],colours[999*used_bins:1000*used_bins])))
 
 full_range = []
 for b in blocks:
@@ -193,3 +186,11 @@ for b in blocks:
 #visualize.plot_fft(full_range,fs,colours)
 visualize.plot_constellation(full_range,colours=colours)
 
+plt.plot(correlation)
+plt.show()
+
+visualize.plot_channel(impulse)
+
+plt.plot(error_list)
+plt.ylim(0,20)
+plt.show()

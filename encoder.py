@@ -20,22 +20,22 @@ from bitstring import BitArray
 ### STANDARD ###
 fs = 48000
 block_length = 4096 
-bits_per_value =2
+bits_per_value = 2
 prefix_length = 512 
 N0 = 85
 N1 = 850
 ###
 recording_time = 4
 chirp_factor = 16
-tracking_length = 20
-num_blocks = 100
+tracking_bins = 15
+num_blocks = 1000
 ###
 used_bins = N1 - N0
 chirp_length = block_length * chirp_factor
-used_bins_data = used_bins - tracking_length
+used_bins_data = used_bins - tracking_bins
 ###
 play = False
-save = True
+save = False
 
 
 n=12
@@ -108,19 +108,15 @@ def blocks_fft_to_signal(blocks_fft):
     
     return transmission
 
-def add_tracking(binary,tracking_length=tracking_length):
+def add_tracking(binary,tracking_bins=tracking_bins):
     output = ""
-    # for i in range(num_blocks):
-    #     out = tracking_length*bits_per_value*"0"+ binary[i*bits_per_value*used_bins_data:(i+1)*bits_per_value*used_bins_data] + tracking_length*bits_per_value*"0"
-    #     output += out
-    
     bl = used_bins_data*bits_per_value
-    spacing = (bl//(2*tracking_length))*2
+    spacing = (bl//(2*tracking_bins))*2
     for b in [binary[i*bl:(i+1)*bl] for i in range(num_blocks)]:
         b_new = ""
-        for s in range(tracking_length):
+        for s in range(tracking_bins):
             
-            if s == tracking_length - 1:
+            if s == tracking_bins - 1:
                 chunk = b[s*spacing:]
             else:
                 chunk = b[s*spacing:(s+1)*spacing]
@@ -152,14 +148,15 @@ if __name__ == "__main__":
     print(f"num blcks:",len(blocks))
     print(f"sig len:  ",len(signal))
     print(f"time:     ",f"{str(len(signal)/fs)[:4]}s")
-    print(f"size:      {str(len_binary/(8*1000))[:4]}KB")
-    print(f"rate:      {str(len_binary/len(signal))[:4]}")
+    print(f"size:      {str(len_binary_data/(8*1000))[:4]}KB")
+    print(f"rate:      {str(len_binary_data*bits_per_value/(2*len(signal)))[:4]}")
+    print(f"byterate:  {str(len_binary_data*fs/(8*1000*len(signal)))[:4]}KB/s")
     #print(f"LDPC:   n: {n}, ({d_v},{d_c})")
     print()
 
     gain = 1
     if save == True:
-        ps.save_signal(signal,fs,f'test_signals/test_signal_{chirp_factor}c_{tracking_length}t_{len(blocks)}b.wav')
+        ps.save_signal(signal,fs,f'test_signals/test_signal_{chirp_factor}c_{tracking_bins}t_{len(blocks)}b.wav')
     if play == True:
         ps.play_signal(signal*gain ,fs)
     
