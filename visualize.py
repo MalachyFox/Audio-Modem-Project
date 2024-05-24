@@ -24,7 +24,7 @@ def plot_fft(fft,fs,colours='b',title=""):
     plt.show()
     
 
-def plot_constellation(fft,colours="b",title=""):
+def plot_constellation(fft,colours,title=""):
     l=abs(np.max(fft))*1.2
     r = np.real(fft)
     i = np.imag(fft)

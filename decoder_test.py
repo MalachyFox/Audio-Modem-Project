@@ -32,11 +32,23 @@ def remove_tracking(binary):
             output += bit
     return output
 
+def apply_poly_to_fft(data_fft,coefs,N0):
+    data_fft_ = data_fft
+    for k in range(len(data_fft)):
+        f = N0 + k
+        angle = np.exp(-1j*(coefs[0]*f + coefs[1]))
+        data_fft_[k] *= angle
+    # for k in range(len(data_fft)):
+    #     f =  N0 + k
+    #     angle = np.exp(-1j*(np.sum([a*f**b for a,b in zip(coefs,np.flip(list(range(len(coefs)))))]))) # ignore this unholy one liner to do polynomials
+    #     data_fft[k] = data_fft[k] * angle
+    return data_fft_
+
 
 ### STANDARD ###
 fs = 48000
 block_length = 4096 
-bpv = 2
+bpv = 2 # bits per value 
 prefix_length = 512 
 N0 = 85
 N1 = 850
@@ -64,7 +76,7 @@ sync = np.concatenate((sync_chirp[-prefix_length:],sync_chirp))
 ### start recording ###
 print("recording...",end="",flush=True)
 if record == True:
-    input = input('press enter')
+    input('press enter')
     recording = sd.rec(fs * recording_time,samplerate = fs,channels=1)
     sd.wait()
     recording = recording.flatten()
@@ -72,9 +84,11 @@ if record == True:
 else:
     if (use_test_signal):
         recording = playsound.load_signal(f'test_signals/test_signal_{chirp_factor}c_{tracking_length}t_{num_blocks}b.wav')
+        
     else:
-        recording = playsound.load_signal(f'recordings/recording_{chirp_factor}c_{tracking_length}t_{num_blocks}b.csv') #   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
-    
+        recording = playsound.load_signal(f'recordings/recording_{chirp_factor}c_{tracking_length}t_{num_blocks}b.wav') #   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
+        #playsound.save_signal(recording,fs,f'recordings/recording_{chirp_factor}c_{tracking_length}t_{num_blocks}b.wav')
+
     recording = recording.flatten()
 print("done")
 
@@ -91,15 +105,14 @@ print("done")
 print("estimating channel...",end="",flush=True)
 chirp = recording[position - len_sync_chirp :position]
 #chirp *= scipy.signal.windows.hamming(block_length)
+
 fft_chirp = get_fft_chirp(chirp)
-
 fft_sync_chirp = get_fft_chirp(sync_chirp)
-
 channel = fft_chirp/fft_sync_chirp
 
-channel = channel[N0:N1] # maybe not useful
-channel = np.concatenate((np.ones(N0),channel,np.ones(block_length//2- N1)))
-impulse = np.fft.irfft(channel)
+channel = channel[N0:N1]
+channel_i = np.concatenate((np.ones(N0),channel,np.ones(block_length//2- N1)))
+impulse = np.fft.irfft(channel_i)
 print("done")
 
 
@@ -109,6 +122,7 @@ blocks = []
 block_index = 0
 order = 2
 coefs = np.zeros(order)
+
 group_length = prefix_length + block_length
 spacing = used_bins//(tracking_length)
 while True:
@@ -119,25 +133,29 @@ while True:
 
     data_fft = np.fft.rfft(data)
     data_fft = data_fft[N0:N1]
-    data_fft = data_fft/(channel[N0:N1])
+    data_fft = data_fft/(channel)
 
-    for k in range(len(data_fft)):
-        f =  N0 + k
-        angle = np.exp(-1j*(np.sum([a*f**b for a,b in zip(coefs,np.flip(list(range(order))))]))) # ignore this unholy one liner to do polynomials
-        data_fft[k] = data_fft[k] * angle
+    data_fft = apply_poly_to_fft(data_fft,coefs,N0)
 
-    
+
     pilot_indices = np.array([i*spacing for i in range(tracking_length)])
     pilots = np.array([np.angle(data_fft[i]) for i in pilot_indices]) - np.pi/4 # or array of pilot locations
     freqs = pilot_indices + N0
     coefs_new = np.polyfit(freqs,pilots,order - 1)
 
-    for k in range(len(data_fft)):
-        f =  N0 + k
-        angle = np.exp(-1j*np.sum(([a*f**b for a,b in zip(coefs_new,np.flip(list(range(order))))])))
-        data_fft[k] = data_fft[k] * angle
-
+    data_fft = apply_poly_to_fft(data_fft,coefs_new,N0)
     coefs += coefs_new
+
+    ## this random little section looks for the mean of the top right values,
+    ## and adjusts the whole plot so theyre in the centre, gives 0.08% error
+    ## improvement so i guess its staying haha
+    mean = []
+    for value in data_fft:
+        value = np.angle(value)
+        if value > 0 and value < np.pi/2:
+            mean.append(value)
+    mean = np.sum(mean)/len(mean) - np.pi/4
+    data_fft = data_fft*np.exp(-1j*mean)
 
     blocks.append(data_fft)
 
@@ -182,7 +200,7 @@ for b in range(len(blocks)):
     total_errors += count
     errors = str(count)[:4] + "%"
     print(f"block {b}, {errors} errors")
-    view = 20
+    # view = 20
     # print(" rec:",r[:view],"...",r[-view:])
     # print("sent:",t[:view],"...",t[-view:])
     # print()

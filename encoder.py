@@ -34,7 +34,7 @@ used_bins = N1 - N0
 chirp_length = block_length * chirp_factor
 used_bins_data = used_bins - tracking_bins
 ###
-play = False
+play = True
 save = False
 
 
@@ -94,7 +94,7 @@ def blocks_to_blocks_fft(blocks):
 
 def blocks_fft_to_signal(blocks_fft):
 
-    transmission = []
+    transmission = np.array([])
     for block in blocks_fft:
         block_symbol = np.fft.irfft(block)
         block_symbol = np.concatenate((block_symbol[-prefix_length:],block_symbol))
