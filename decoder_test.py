@@ -23,13 +23,20 @@ def get_fft_chirp(chirp,overlap = False):
 
     return fft_chirp/np.max(fft_chirp)
 
-
+def remove_tracking(binary):
+    length = used_bins*bpv//tracking_length
+    output = ""
+    list_of_lists = [binary[(i*length)+bpv:(i+1)*length] for i in range(num_blocks*tracking_length)]
+    for list in list_of_lists:
+        for bit in list:
+            output += bit
+    return output
 
 
 ### STANDARD ###
 fs = 48000
 block_length = 4096 
-bits_per_value = 2
+bpv = 2
 prefix_length = 512 
 N0 = 85
 N1 = 850
@@ -55,6 +62,7 @@ sync = np.concatenate((sync_chirp[-prefix_length:],sync_chirp))
 
 
 ### start recording ###
+print("recording...",end="",flush=True)
 if record == True:
     input = input('press enter')
     recording = sd.rec(fs * recording_time,samplerate = fs,channels=1)
@@ -68,17 +76,19 @@ else:
         recording = playsound.load_signal(f'recordings/recording_{chirp_factor}c_{tracking_length}t_{num_blocks}b.csv') #   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
     
     recording = recording.flatten()
-print("done recording")
+print("done")
 
 
 ### find position ###
+print("synchronizing...",end="",flush=True)
 len_sync_chirp = len(sync_chirp)
 correlation = scipy.signal.correlate(recording, sync)
 position = np.argmax(correlation) + 1 # +1 moves slopes upwards CCW
-
+print("done")
 
 
 ### estimate channel ###
+print("estimating channel...",end="",flush=True)
 chirp = recording[position - len_sync_chirp :position]
 #chirp *= scipy.signal.windows.hamming(block_length)
 fft_chirp = get_fft_chirp(chirp)
@@ -90,17 +100,19 @@ channel = fft_chirp/fft_sync_chirp
 channel = channel[N0:N1] # maybe not useful
 channel = np.concatenate((np.ones(N0),channel,np.ones(block_length//2- N1)))
 impulse = np.fft.irfft(channel)
-
+print("done")
 
 
 ### reverse channel effects ###
+print("channel correction...",end="",flush=True)
 blocks = []
 block_index = 0
 order = 2
 coefs = np.zeros(order)
 group_length = prefix_length + block_length
+spacing = used_bins//(tracking_length)
 while True:
-    print(coefs)
+
     start = position + prefix_length + group_length * block_index
     end = position + group_length + group_length * block_index
     data = recording[start:end]
@@ -114,35 +126,40 @@ while True:
         angle = np.exp(-1j*(np.sum([a*f**b for a,b in zip(coefs,np.flip(list(range(order))))]))) # ignore this unholy one liner to do polynomials
         data_fft[k] = data_fft[k] * angle
 
-    spacing = used_bins//(tracking_length)
+    
     pilot_indices = np.array([i*spacing for i in range(tracking_length)])
     pilots = np.array([np.angle(data_fft[i]) for i in pilot_indices]) - np.pi/4 # or array of pilot locations
     freqs = pilot_indices + N0
     coefs_new = np.polyfit(freqs,pilots,order - 1)
+
     for k in range(len(data_fft)):
         f =  N0 + k
         angle = np.exp(-1j*np.sum(([a*f**b for a,b in zip(coefs_new,np.flip(list(range(order))))])))
         data_fft[k] = data_fft[k] * angle
 
     coefs += coefs_new
+
     blocks.append(data_fft)
+
     block_index += 1
     if block_index == num_blocks:
         break
-
+print("done")
 
 ### decode signal ###
+print("decoding...",end="",flush=True)
 bytes_list, r_bits = d.blocks_to_bytes(blocks)
-t_bits = e.random_binary(used_bins_data*bits_per_value*num_blocks)
+r_bits = remove_tracking(r_bits)
+t_bits = e.random_binary(used_bins_data*bpv*num_blocks)
 t_bits = e.add_tracking(t_bits)
 t_bits = e.correct_binary_length(t_bits)
-
+print("done")
 
 
 ### add colours ###         # not scalable for M-ary yet
 colours = []
-for i in range(len(t_bits)//bits_per_value):
-    bit = t_bits[i*bits_per_value:(i+1)*bits_per_value]
+for i in range(len(t_bits)//bpv):
+    bit = t_bits[i*bpv:(i+1)*bpv]
     if bit == "00":
         colours.append("r")
     elif bit == "01":
@@ -152,15 +169,15 @@ for i in range(len(t_bits)//bits_per_value):
     elif bit == "10":
         colours.append("b")
 
-
+t_bits = remove_tracking(t_bits)
 
 ### compare signals ###
 total_errors = 0
 error_list = []
 for b in range(len(blocks)):
-    r = r_bits[b*used_bins*2:(b+1)*used_bins*2]
-    t = t_bits[b*used_bins*2:(b+1)*used_bins*2]
-    count = sum(1 for a,b in zip(r,t)if a != b) /(used_bins*bits_per_value) * 100
+    r = r_bits[b*used_bins_data*bpv:(b+1)*used_bins_data*bpv]
+    t = t_bits[b*used_bins_data*bpv:(b+1)*used_bins_data*bpv]
+    count = sum(1 for a,b in zip(r,t)if a != b) /(used_bins_data*bpv) * 100
     error_list.append(count)
     total_errors += count
     errors = str(count)[:4] + "%"
