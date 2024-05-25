@@ -6,6 +6,7 @@ import playsound
 import matplotlib.pyplot as plt
 import decoder as d
 import encoder as e
+import py.ldpc as ldpc
 
 def get_fft_chirp(chirp,overlap = False):
     fft_chirp = np.zeros(block_length//2,dtype=np.complex_)
@@ -21,12 +22,12 @@ def get_fft_chirp(chirp,overlap = False):
             fft_partial_chirp = np.fft.rfft(partial_chirp)[:-1]
             fft_chirp += fft_partial_chirp
 
-    return fft_chirp/np.max(fft_chirp)
+    return fft_chirp
 
 def remove_tracking(binary):
-    length = used_bins*bpv//tracking_length
+    length = used_bins*2//tracking_length
     output = ""
-    list_of_lists = [binary[(i*length)+bpv:(i+1)*length] for i in range(num_blocks*tracking_length)]
+    list_of_lists = [binary[(i*length)+2:(i+1)*length] for i in range(num_blocks*tracking_length)]
     for list in list_of_lists:
         for bit in list:
             output += bit
@@ -34,6 +35,8 @@ def remove_tracking(binary):
 
 def apply_poly_to_fft(data_fft,coefs,N0):
     data_fft_ = data_fft
+    freqs = np.linspace(N0,N0 + used_bins)
+    angles = np.exp(-1j*coefs[0]+coefs[1])
     for k in range(len(data_fft)):
         f = N0 + k
         angle = np.exp(-1j*(coefs[0]*f + coefs[1]))
@@ -42,36 +45,91 @@ def apply_poly_to_fft(data_fft,coefs,N0):
     #     f =  N0 + k
     #     angle = np.exp(-1j*(np.sum([a*f**b for a,b in zip(coefs,np.flip(list(range(len(coefs)))))]))) # ignore this unholy one liner to do polynomials
     #     data_fft[k] = data_fft[k] * angle
-    return data_fft_
+    return angles
+
+def sigmoid(x):
+  return 1 / (1 + np.exp(-x))
+
+def llhr(fft,channel_inv,sigma2):
+
+    yl = []
+    for k in range(len(fft)):
+        co =  (channel_inv[k])*(np.conj(channel_inv[k]))/(sigma2)
+        l1 = np.real(np.sqrt(2)*np.imag(fft[k])*co)
+        l2 = np.real(np.sqrt(2)*np.real(fft[k])*co)
+        yl.append(l1)
+        yl.append(l2)
+    return np.array(yl)
+
+def binary_to_fft(binary):
+    fft = np.zeros(used_bins,dtype=np.complex_)
+    for k in range(used_bins):
+        value = binary[k*2:(k+1)*2]
+        point = 0 + 0j
+        if value[0] > 0:
+            point+= 1j
+        else:
+            point -= 1j
+        if value[1] > 0:
+            point += 1
+        else:
+            point -= 1
+        fft[k] = point 
+    return fft
+
+def blocks_to_binary(blocks):
+    binary_big = []
+    for block in blocks:
+        binary = []
+        for value in block:
+            output = [1,1]
+            if np.imag(value) >0:
+                output[0] = 0
+            if np.real(value) > 0:
+                output[1] = 0
+            binary.extend(output)
+        binary_big.extend(binary)
+    return np.array(binary_big)
+
+def decode(binary):
+    output = []
+    for i in range(len(binary)//num_blocks):
+        chunk = binary[i*used_bins*2:(i+1)*used_bins*2]
+        chunk = chunk[:2*used_bins_data]
+        output.extend(chunk)
+    return np.array(output)
+
+
 
 ### STANDARD ###
 fs = 48000
 block_length = 4096 
-bpv = 2 # bits per value 
 prefix_length = 512 
-N0 = 85
-N1 = 850
+N0 = 85 # 85 # 42
+N1 = 850 # 850 # 690
 ###
-recording_time = 100
+recording_time = 13
 chirp_factor = 16
-tracking_length = 15
-num_blocks = 1000
+tracking_length = 0
+num_blocks = 100
+c = ldpc.code('802.11n','1/2',54)
 ###
-used_bins = N1 - N0
+used_bins = c.N//2
 chirp_length = block_length * chirp_factor
-used_bins_data = used_bins - tracking_length
+used_bins_data = c.K//2 # used_bins - tracking_length
+
 ###
 record = False
 use_test_signal = False
 
-
-def run():
+def run(variable = 1):
     
 
 
     ### sync function ###
-    sync_chirp = playsound.gen_chirp(N0,N1,fs,chirp_length,block_length)
+    sync_chirp = playsound.gen_chirp(N0,N0+used_bins,fs,chirp_length,block_length)
     sync = np.concatenate((sync_chirp[-prefix_length:],sync_chirp))
+    
 
 
 
@@ -82,13 +140,13 @@ def run():
         recording = sd.rec(fs * recording_time,samplerate = fs,channels=1)
         sd.wait()
         recording = recording.flatten()
-        playsound.save_signal(recording,fs,f'recordings/recording_{chirp_factor}c_{tracking_length}t_{num_blocks}b.csv')
+        playsound.save_signal(recording,fs,f'recordings/recording_{c.standard}_{c.N}_{c.K}_{num_blocks}b.wav')
     else:
         if (use_test_signal):
-            recording = playsound.load_signal(f'test_signals/test_signal_{chirp_factor}c_{tracking_length}t_{num_blocks}b.wav')
+            recording = playsound.load_signal(f'test_signals/test_signal_{c.standard}_{c.N}_{c.K}_{num_blocks}b.wav')
             
         else:
-            recording = playsound.load_signal(f'recordings/recording_{chirp_factor}c_{tracking_length}t_{num_blocks}b.wav') #   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
+            recording = playsound.load_signal(f'recordings/recording_{c.standard}_{c.N}_{c.K}_{num_blocks}b.wav') #   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
             #playsound.save_signal(recording,fs,f'recordings/recording_{chirp_factor}c_{tracking_length}t_{num_blocks}b.wav')
 
         recording = recording.flatten()
@@ -107,13 +165,15 @@ def run():
     print("estimating channel...",end="",flush=True)
     chirp = recording[position - len_sync_chirp :position]
     #chirp *= scipy.signal.windows.hamming(block_length)
-
     fft_chirp = get_fft_chirp(chirp)
     fft_sync_chirp = get_fft_chirp(sync_chirp)
     channel = fft_chirp/fft_sync_chirp
 
-    channel = channel[N0:N1]
-    channel_i = np.concatenate((np.ones(N0),channel,np.ones(block_length//2- N1)))
+    channel = channel[N0:N0+used_bins]
+    channel_inv = 1/channel
+    channel_inv_static = channel_inv
+    channel_inv /= chirp_factor
+    channel_i = np.concatenate((np.ones(N0),channel,np.ones(block_length//2 - N0 - used_bins)))
     impulse = np.fft.irfft(channel_i)
     print("done")
 
@@ -121,12 +181,16 @@ def run():
     ### reverse channel effects ###
     print("channel correction...",end="",flush=True)
     blocks = []
+    blocks_ideal= []
     block_index = 0
     order = 2
     coefs = np.zeros(order)
-
     group_length = prefix_length + block_length
-    spacing = used_bins//(tracking_length)
+    #spacing = used_bins//(tracking_length)
+    sigma2 = 0
+    yl_list = []
+    channel_estimates = []
+   
     while True:
 
         start = position + prefix_length + group_length * block_index
@@ -134,54 +198,85 @@ def run():
         data = recording[start:end]
 
         data_fft = np.fft.rfft(data)
-        data_fft = data_fft[N0:N1]
-        data_fft = data_fft/(channel)
+        data_fft = data_fft[N0:N0+used_bins]
 
-        data_fft = apply_poly_to_fft(data_fft,coefs,N0)
 
-        pilot_indices = np.array([i*spacing for i in range(tracking_length)])
-        pilots = np.array([np.angle(data_fft[i]) for i in pilot_indices]) - np.pi/4 # or array of pilot locations
-        freqs = pilot_indices + N0
-        coefs_new = np.polyfit(freqs,pilots,order - 1)
+        data_fft *= channel_inv
 
-        data_fft = apply_poly_to_fft(data_fft,coefs_new,N0)
+        if block_index == 0:  # known block
+            known_bits = e.random_binary(used_bins_data*2)
+            known_bits = c.encode(known_bits)
+            known_fft = binary_to_fft(known_bits)
+            complex_noise = known_fft - channel_inv*data_fft 
+            sigma2 = np.mean(np.imag(complex_noise)**2) + np.mean(np.real(complex_noise)**2)
+            print(sigma2)
+
+
         
-        coefs += coefs_new
-
-
-        mean = []                       ## this random little section looks for the mean of the top right values,
-        for value in data_fft:          ## and adjusts the whole plot so theyre in the centre, gives -0.08% error
-            value = np.angle(value)     ## improvement so i guess its staying haha (-0.02% with above algorithm as well)
-            if value > 0 and value < np.pi/2:
-                mean.append(value)
-        mean = np.sum(mean)/len(mean) - np.pi/4
-        data_fft = data_fft*np.exp(-1j*mean)
-
-
-        estimate = np.ones(used_bins,dtype=np.complex_)
+        yl = llhr(data_fft,channel_inv,sigma2)
+        app, it = c.decode(yl,'sumprod')
+        #print(app)
+        binary = [ 1 if bitl > 0 else 0 for bitl in app]
+        data_fft_ideal = binary_to_fft(binary)
+        estimate_new = np.ones(used_bins,dtype=np.complex_)
         for k in range(used_bins):
-            value = np.angle(data_fft[k])
-            if value > 0  and value < np.pi/2 :
-                new_value = np.pi/4
-            elif value > np.pi/2  and value < np.pi :
-                new_value = np.pi/4 + np.pi/2
-            elif value < 0  and value > -np.pi/2 :
-                new_value = -np.pi/4
-            elif value < -np.pi/2  and value > -np.pi :
-                new_value = -np.pi/4 - np.pi/2
+            estimate_new[k] = (data_fft_ideal[k]/data_fft[k])
+        estimate_new = estimate_new**(1/4)
+        channel_inv *= estimate_new
+        data_fft *= estimate_new
 
-            estimate[k] = np.exp(-1j*(new_value - value)/128)
         
 
-        channel *= estimate
+        inds = np.where(data_fft_ideal == 1 + 1j)[0]
+        pilots = np.angle(data_fft[inds]) - np.pi/4
+        freqs = inds + N0
+        coefs_new = np.polyfit(freqs,pilots,order - 1)
+        angles = apply_poly_to_fft(data_fft,coefs_new,N0)**(1/4)
+
+        channel_inv *= angles
+        data_fft *= angles
+
+        yl = llhr(data_fft,channel_inv,sigma2)
+        app, it = c.decode(yl)
+        binary = [ 1 if bitl > 0 else 0 for bitl in app]
+        data_fft_ideal = binary_to_fft(binary)
+
+        
+
+        # mean = []                       ## this random little section looks for the mean of the top right values,
+        # for value in data_fft:          ## and adjusts the whole plot so theyre in the centre, gives -0.08% error
+        #     value = np.angle(value)     ## improvement so i guess its staying haha (-0.02% with above algorithm as well)
+        #     if value > 0 and value < np.pi/2:
+        #         mean.append(value)
+        # mean = np.sum(mean)/len(mean) - np.pi/4
+        # data_fft = data_fft*np.exp(-1j*mean)
+
+
+        # estimate_new = np.ones(used_bins,dtype=np.complex_)
+        # for k in range(used_bins):
+        #     value = np.angle(data_fft[k])
+        #     if value > 0  and value < np.pi/2 :
+        #         new_value =  1 +1j
+        #     elif value > np.pi/2  and value < np.pi :
+        #         new_value = -1 +1j
+        #     elif value < 0  and value > -np.pi/2 :
+        #         new_value =  1 -1j
+        #     elif value < -np.pi/2  and value > -np.pi :
+        #         new_value = -1 -1j
+
+        #     estimate_new[k] = (new_value)/(data_fft[k])
+
+        #channel_inv *= estimate_new**(1/128)
                 
 
   
 
+        blocks_ideal.append(data_fft_ideal)
         blocks.append(data_fft)
 
         block_index += 1
         if block_index == num_blocks:
+            print("here")
             break
     print("done")
 
@@ -189,68 +284,62 @@ def run():
 
     ### decode signal ###
     print("decoding...",end="",flush=True)
-    bytes_list, r_bits = d.blocks_to_bytes(blocks)
-    r_bits = remove_tracking(r_bits)
-    t_bits = e.random_binary(used_bins_data*bpv*num_blocks)
-    t_bits = e.add_tracking(t_bits)
-    t_bits = e.correct_binary_length(t_bits)
+    r_bits = blocks_to_binary(blocks_ideal)
+    t_bits_information = e.random_binary(used_bins_data*2*num_blocks)
+    t_bits = e.encode_blocks(t_bits_information)
     print("done")
 
 
 
-    ### add colours ###         # not scalable for M-ary yet
+    ### add colours ###         
     colours = []
-    for i in range(len(t_bits)//bpv):
-        bit = t_bits[i*bpv:(i+1)*bpv]
-        if bit == "00":
+    for i in range(len(t_bits)//2):
+        bit = list(t_bits[i*2:(i+1)*2])
+       
+        if (bit == [0,0]):
             colours.append("r")
-        elif bit == "01":
+        elif (bit == [0,1]):
             colours.append("y")
-        elif bit == "11":
+        elif (bit == [1,1]):
             colours.append("g")
-        elif bit == "10":
+        elif (bit == [1,0]):
             colours.append("b")
+        #print(bit,colours[i])
 
-
-
-
+    t_bits = t_bits_information
+    r_bits = decode(r_bits)
 
     ### compare signals ###
-    t_bits = remove_tracking(t_bits)
+    #t_bits = remove_tracking(t_bits)
     total_errors = 0
     error_list = []
     for b in range(len(blocks)):
-        r = r_bits[b*used_bins_data*bpv:(b+1)*used_bins_data*bpv]
-        t = t_bits[b*used_bins_data*bpv:(b+1)*used_bins_data*bpv]
-        count = sum(1 for a,b in zip(r,t)if a != b) /(used_bins_data*bpv) * 100
+        r = r_bits[b*used_bins_data*2:(b+1)*used_bins_data*2]
+        t = t_bits[b*used_bins_data*2:(b+1)*used_bins_data*2]
+        count = sum(1 for a,b in zip(r,t)if a != b)* 100 /(used_bins_data*2)
         error_list.append(count)
         total_errors += count
         errors = str(count)[:4] + "%"
-        #print(f"block {b}, {errors} errors")
-        # view = 20
-        # print(" rec:",r[:view],"...",r[-view:])
-        # print("sent:",t[:view],"...",t[-view:],"\n")
+        print(f"block {b}, {errors} errors")
+        view = 20
+        print(" rec:",r[:view],"...",r[-view:])
+        print("sent:",t[:view],"...",t[-view:],"\n")
 
     total_errors = total_errors/num_blocks
-    print(f"TOTAL ERRORS: {(str(total_errors))[:4]}%")
+    print(f"TOTAL ERRORS: {(str(total_errors))}%")
 
 
 
-    ### view plots ###
+    # ### view plots ###
     #visualize.big_plot([blocks[0],blocks[500],blocks[999]],fs,title="test",colours=np.concatenate((colours[0:used_bins],colours[500*used_bins:501*used_bins],colours[999*used_bins:1000*used_bins])))
-    visualize.big_plot(blocks[:10],fs,title="test",colours=(colours[0:used_bins*10]))
+    #visualize.big_plot(blocks[:10],fs,title="test",colours=(colours[0:used_bins*10]))
+    visualize.big_plot(blocks[:8],fs,title="test",colours=colours)
+    visualize.plot_constellation(np.array(blocks).flatten(),colours=colours)
 
-    full_range = []
-    for b in blocks:
-        full_range = np.concatenate((full_range,b))
+    #plt.plot(correlation)
+    #plt.show()
 
-    #visualize.plot_fft(full_range,fs,colours)
-    visualize.plot_constellation(full_range,colours=colours)
-
-    plt.plot(correlation)
-    plt.show()
-
-    visualize.plot_channel(impulse)
+    #visualize.plot_channel(impulse)
 
     plt.plot(error_list)
     plt.ylim(0,20)
@@ -260,6 +349,15 @@ def run():
 
 
 if __name__ == "__main__":
+    # results = []
+    # samples = list(range(50,250,10))
+    # for var in samples:
+    #     results.append(run(var))
+    # plt.plot(samples,results)
+    # plt.xlabel('clumping factor')
+    # plt.ylabel(r'% errors')
+    # plt.show()
+
     run()
 
 

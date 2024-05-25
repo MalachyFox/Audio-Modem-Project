@@ -25,7 +25,7 @@ def plot_fft(fft,fs,colours='b',title=""):
     
 
 def plot_constellation(fft,colours,title=""):
-    l=abs(np.max(fft))*1.2
+    l=np.max(np.absolute(fft))*1.2
     r = np.real(fft)
     i = np.imag(fft)
     plt.scatter(r,i,s=2,c=colours,alpha=0.1)
@@ -41,7 +41,7 @@ def plot_constellation(fft,colours,title=""):
     plt.show()
 
 def big_plot(blocks,fs,colours,title=""):
-
+    
     fig, axs = plt.subplots(2,len(blocks),sharex='row',sharey='row')
     fig.set_size_inches(18, 6)
 
