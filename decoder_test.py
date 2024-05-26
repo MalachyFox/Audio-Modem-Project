@@ -83,30 +83,41 @@ def blocks_to_binary(blocks_):
 
 def decode(binary):
     output = []
-    for i in range(len(binary)*ldpc_factor//num_blocks):
+    for i in range(used_bins*2//ldpc_factor):
         chunk = binary[i*used_bins*2//ldpc_factor:(i+1)*used_bins*2//ldpc_factor]
         chunk = chunk[:2*used_bins_data//ldpc_factor]
         output.extend(chunk)
     return np.array(output)
 
+def do_ldpc(data_fft,channel_inv,sigma2,pr=False):
 
+    yl = llhr(data_fft,channel_inv,sigma2)
+    app = []
+    for i in range(ldpc_factor):
+        app_temp, it = c.decode(yl[i*c.N:(i+1)*c.N],'sumprod2')
+        if it > 199 and pr == True:
+            print(" ! max it")
+    app.extend(app_temp)
+    binary = [ 1 if bitl > 0 else 0 for bitl in app]
+    data_fft_ideal = binary_to_values(binary)
+
+    return data_fft_ideal, it
 
 ### STANDARD ###
 fs = 48000
 block_length = 4096 
 prefix_length = 512 
-N0 = 85 
-N1 = 850 # redundant atm as size determined by ldpc code
+N0 = 50
 ###
-recording_time = 13
+recording_time = 40
 chirp_factor = 16
-num_blocks = 100
-c = ldpc.code('802.11n','3/4',54)
+c = ldpc.code('802.16','3/4',81)
 ldpc_factor = 1
 ###
 used_bins = (c.N//2)*ldpc_factor
 chirp_length = block_length*chirp_factor
 used_bins_data = (c.K//2)*ldpc_factor
+N1 = N0+ used_bins
 ###
 record = False
 use_test_signal = False
@@ -125,20 +136,22 @@ def run(p):
         recording = sd.rec(fs * recording_time,samplerate = fs,channels=1)
         sd.wait()
         recording = recording.flatten()
-        playsound.save_signal(recording,fs,f'recordings/recording_{c.standard}_{c.N}_{c.K}_{num_blocks}b.wav')
+        playsound.save_signal(recording,fs,f'recordings/recording_{c.standard}_{c.N}_{c.K}_{N0}_{N1}.wav')
     else:
         if (use_test_signal):
-            recording = playsound.load_signal(f'test_signals/test_signal_{c.standard}_{c.N}_{c.K}_{num_blocks}b.wav')
+            recording = playsound.load_signal(f'test_signals/test_signal_{c.standard}_{c.N}_{c.K}_{N0}_{N1}.wav')
         else:
-            recording = playsound.load_signal(f'recordings/recording_{c.standard}_{c.N}_{c.K}_{num_blocks}b.wav')
+            recording = playsound.load_signal(f'recordings/recording_{c.standard}_{c.N}_{c.K}_{N0}_{N1}.wav')
         recording = recording.flatten()
     print("done")
-   
+
+
+
 
     ### find position ###
     print("synchronizing...",end="",flush=True)
     len_sync_chirp = len(sync_chirp)
-    correlation = scipy.signal.correlate(recording, sync)
+    correlation = scipy.signal.correlate(recording[:fs*10], sync) # checks first 10s
     position = np.argmax(correlation) + 1 # +1 moves slopes upwards CCW, seems to generally help?
     print("done")
 
@@ -148,19 +161,16 @@ def run(p):
     print("estimating channel...",end="",flush=True)
     chirp = recording[position - len_sync_chirp :position]
     fft_chirp = get_fft_chirp(chirp)
-    fft_chirp /=4 # chirp tends to be louder we adjust this so that the first block is well normalised, automatically adjusted for subsequent blocks
-    
     fft_sync_chirp = get_fft_chirp(sync_chirp)
-    fft_sync_chirp /= np.mean(np.abs(fft_sync_chirp)**2)
 
     channel = fft_chirp/fft_sync_chirp
     channel = channel[N0:N0+used_bins]
     channel_inv = 1/channel
-    channel_inv *=np.sqrt(2) # from unit circle to points 1,1 etc
-    
     channel_i = np.concatenate((np.ones(N0),channel,np.ones(block_length//2 - N0 - used_bins)))
     impulse = np.fft.irfft(channel_i)
     print("done")
+
+
 
 
     ### reverse channel effects ###
@@ -175,31 +185,42 @@ def run(p):
     end = position + group_length
 
     while True:
+        print(f"\rblock: {block_index:04d}",end="")
         data = recording[start:end]
         data_fft = np.fft.rfft(data)
         data_fft = data_fft[N0:N0+used_bins]
-
         data_fft *= channel_inv
 
 
-        # if block_index == 0:  # known block                   # can be useful to treat first block as known for a difficult signal / higher rate code
-        #     known_bits = e.random_binary(used_bins_data*2)
-        #     known_bits = e.encode_blocks(known_bits,1)
-        #     known_fft = binary_to_values(known_bits)
-        #     complex_noise = known_fft - data_fft 
-        #     sigma2 =  np.mean(np.imag(complex_noise)**2) + np.mean(np.real(complex_noise)**2)
-        #     #no factor of sigma  makes a difference
-        
-        yl = llhr(data_fft,channel_inv,sigma2)
-        app = []
-        for i in range(ldpc_factor):
-            app_temp, it = c.decode(yl[i*c.N:(i+1)*c.N],'sumprod2')
-            app.extend(app_temp)
-        binary = [ 1 if bitl > 0 else 0 for bitl in app]
-        data_fft_ideal = binary_to_values(binary)
-        channel_inv *= (data_fft_ideal/data_fft)**(1/2) #**(1/(1+a-(a/(b*block_index+1)))) # crazy function gives more weight at the start and less towards thte end, tapering to a constant 1/a with speed b a = 4, b = 0.05
 
+        ## normalise first block and find sigma.
+        power = np.mean(np.absolute(data_fft))
+        if block_index == 0:
+            data_fft /= power*np.sqrt(2)/2 # set avg power to 2
+            channel_inv /= power*np.sqrt(2)/2
+
+        if block_index == 0:  # known block
+            known_bits = e.random_binary(used_bins_data*2)
+            known_bits = e.encode_blocks(known_bits)
+            #sign = np.sign(np.real(np.mean(channel_inv))*np.imag(np.mean(channel_inv)))
+            data_fft_ideal = -1 * binary_to_values(known_bits)  # no idea why this has to be negative....
+            complex_noise = data_fft_ideal - data_fft 
+            sigma2 =  np.mean(np.imag(complex_noise)**2) + np.mean(np.real(complex_noise)**2)
+            channel_inv *= (data_fft_ideal/data_fft)**(1/2)
+            data_fft *= (data_fft_ideal/data_fft)
+
+
+        ## do first ldpc
+        data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2)
+
+        if it >199 and block_index > 5:  ##first can have too many errors, might be worth sending a warmup known block or a longer chirp?
+            num_blocks = block_index
+            break
         
+        channel_inv *= (data_fft_ideal/data_fft)**(1/2) #**(1/(1+a-(a/(b*block_index+1)))) # crazy function gives more weight at the start and less towards thte end, tapering to a constant 1/a with speed b a = 4, b = 0.05
+        
+
+        ## do linear shift
         inds = np.where(data_fft_ideal == 1 + 1j)[0]
         pilots = np.angle(data_fft[inds]) - np.pi/4
         freqs = inds + N0
@@ -209,16 +230,16 @@ def run(p):
         channel_inv *= angles
         data_fft *= angles
 
-        complex_noise = data_fft_ideal - data_fft 
-        sigma2 = np.mean(np.imag(complex_noise)**2) + np.mean(np.real(complex_noise)**2) # this also doesn't seem to make a difference
+
+        ## do 2nd ldpc
+        if block_index != 0:
+            complex_noise = data_fft_ideal - data_fft 
+            sigma2 = np.mean(np.imag(complex_noise)**2) + np.mean(np.real(complex_noise)**2) # this also doesn't seem to make a difference
         
-        # yl = llhr(data_fft,channel_inv,sigma2)
-        # app, it = c.decode(yl)
-        # binary = [ 1 if bitl > 0 else 0 for bitl in app]  #!# might be worth doing a second pass??  #!#
-        # data_fft_ideal = binary_to_values(binary) 
+            data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2,pr=True)
 
-  
 
+        ## clean up
         blocks_ideal.append(data_fft_ideal)
         blocks.append(data_fft)
 
@@ -226,24 +247,22 @@ def run(p):
         end += group_length
         block_index += 1
 
-        if block_index == num_blocks:
-            break
-    print("done")
+    print("\ndone")
 
 
 
     ### decode signal ###
     print("decoding...",end="",flush=True)
-    r_bits = blocks_to_binary(blocks_ideal) # blocks ideal is the same as blocks??? !! blocks gives FEWER ERORRS???? something is going on here
-    t_bits_information = e.random_binary(used_bins_data*2*num_blocks)
+    r_bits = blocks_to_binary(blocks_ideal)
+    t_bits_information = e.random_binary(used_bins_data*2*(num_blocks))
     t_bits = e.encode_blocks(t_bits_information)
     print("done")
 
 
 
-    ### add colours ###         
+    ### add colours ###    
     colours = []
-    for i in range(len(t_bits)//2):
+    for i in range(len(r_bits)//2):
         bit = list(r_bits[i*2:(i+1)*2])  # r_bits for guessed colours, t_bits for known colours
         if (bit == [0,0]):
             colours.append("r")
@@ -262,20 +281,21 @@ def run(p):
     
     total_errors = 0
     error_list = []
-    for b in range(len(blocks)):
+    for b in range(num_blocks):
         r = r_bits[b*used_bins_data*2:(b+1)*used_bins_data*2]
         t = t_bits[b*used_bins_data*2:(b+1)*used_bins_data*2]
-        count = sum(1 for a,b in zip(r,t) if a != b)* 100 / (used_bins_data*2)
-        error_list.append(count)
-        total_errors += count
-        errors = str(count)[:4] + "%"
-        print(f"block {b}, {errors} errors")
+        count = sum(1 for a,b in zip(r,t) if a != b)
+        errors = count / (used_bins_data*2)
+        error_list.append(errors)
+        total_errors += errors
+        if count !=0:
+            print(f"block {b:04d} {count:02d} errors")
         # view = 20
         # print(" rec:",r[:view],"...",r[-view:])
         # print("sent:",t[:view],"...",t[-view:],"\n")
 
     total_errors = total_errors/num_blocks
-    print(f"TOTAL ERRORS: {(str(total_errors))}%")
+    print(f"TOTAL ERRORS: {total_errors:.4%}")
 
 
 
@@ -285,14 +305,17 @@ def run(p):
     visualize.big_plot(blocks[:8],fs,title="test",colours=colours)
     visualize.plot_constellation(np.array(blocks).flatten(),colours=colours)
 
-    # #plt.plot(correlation)
-    # #plt.show()
+    plt.plot(correlation)
+    plt.show()
 
-    # #visualize.plot_channel(impulse)
+    visualize.plot_channel(impulse)
 
-    # plt.plot(error_list)
-    # plt.ylim(0,20)
-    # plt.show()
+    plt.plot(error_list)
+    plt.ylim(0,20)
+    plt.show()
+
+    plt.plot(recording)
+    plt.show()
 
     return total_errors
 
