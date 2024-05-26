@@ -25,21 +25,19 @@ prefix_length = 512
 N0 = 85
 N1 = 850
 ###
-recording_time = 4
 chirp_factor = 16
 tracking_bins = 0
 num_blocks = 100
-c = py.ldpc.code('802.11n','1/2',54)
+c = py.ldpc.code('802.11n','3/4',54)
+ldpc_factor = 1
 ###
-used_bins = c.N//2
+used_bins = ( c.N// 2 ) * ldpc_factor
 chirp_length = block_length * chirp_factor
-used_bins_data = c.K//2
+used_bins_data = ( c.K // 2 ) * ldpc_factor
 ###
 play = False
 save = True
 
-
-M = 4
 
 
 def random_binary(N):
@@ -53,8 +51,6 @@ def correct_binary_length(binary):
     binary = binary +  (used_bins - two)%(used_bins) * 2 * "0" # makes sure binary can be divided into blocks
     return binary
 
-
-
 def values_to_blocks(phases):
     blocks = []
     for p in range(len(phases)//used_bins):
@@ -62,8 +58,6 @@ def values_to_blocks(phases):
         block = np.pad(block,(N0,block_length//2 + 1- N0 - used_bins))
         blocks.append(block)
     return blocks
-
-
 
 def blocks_fft_to_signal(blocks_fft):
 
@@ -81,23 +75,6 @@ def blocks_fft_to_signal(blocks_fft):
     
     return transmission
 
-def add_tracking(binary,tracking_bins=tracking_bins):
-    output = ""
-    bl = used_bins_data*2
-    spacing = (bl//(2*tracking_bins))*2
-    for b in [binary[i*bl:(i+1)*bl] for i in range(num_blocks)]:
-        b_new = ""
-        for s in range(tracking_bins):
-            
-            if s == tracking_bins - 1:
-                chunk = b[s*spacing:]
-            else:
-                chunk = b[s*spacing:(s+1)*spacing]
-            chunk = "00" + chunk
-            b_new += chunk
-        output += b_new
-    return output 
-
 def binary_to_values(binary):
     values = []
     for k in range(len(binary)//2):
@@ -110,11 +87,11 @@ def binary_to_values(binary):
         values.append(output)
     return np.array(values)/np.sqrt(2)
 
-def encode_blocks(binary):
+def encode_blocks(binary,num_blocks=num_blocks):
     output = []
     
-    for i in range(num_blocks):
-        block = binary[i*2*used_bins_data:(i+1)*2*used_bins_data]
+    for i in range(num_blocks*ldpc_factor):
+        block = binary[i*2*used_bins_data//ldpc_factor:(i+1)*2*used_bins_data//ldpc_factor]
         block = c.encode(block)
         output.extend(block)
     return np.array(output)
@@ -125,22 +102,20 @@ if __name__ == "__main__":
     
     binary = random_binary(used_bins_data*2*num_blocks)
     len_binary_data = len(binary)
-    
     binary = encode_blocks(binary)
-    len_binary = len(binary)
     values = binary_to_values(binary)
     blocks_fft = values_to_blocks(values)
-    #v.plot_fft(blocks_fft[3],fs)
     signal = blocks_fft_to_signal(blocks_fft)
 
     print()
     print(f"fs:       ",fs)
     print(f'N0:       ',N0)
-    print(f'N1:       ',N1)
+    print(f'N1:       ',N0 + used_bins)
     print(f"blck len: ",block_length)
     print(f"prfx len: ",prefix_length)
+    print(f'ldpc:      {c.standard} {c.K/c.N} {c.z}')
+    print()
     print(f"num blcks:",len(blocks_fft))
-    print(f"sig len:  ",len(signal))
     print(f"time:     ",f"{str(len(signal)/fs)[:4]}s")
     print(f"size:      {str(len_binary_data/(8*1000))[:4]}KB")
     print(f"rate:      {str(len_binary_data*2/(2*len(signal)))[:4]}")

@@ -9,29 +9,20 @@ import encoder as e
 import py.ldpc as ldpc
 
 def get_fft_chirp(chirp,overlap = False):
-    fft_chirp = np.zeros(block_length//2,dtype=np.complex_)
+    fft_chirp = np.zeros(block_length,dtype=np.complex_)
     if overlap == True:
         for i in range(chirp_factor* 2 - 1):
             partial_chirp = chirp[i*block_length//2:(i+2)*block_length//2]
             partial_chirp *= scipy.signal.windows.hamming(block_length)
-            fft_partial_chirp = np.fft.rfft(partial_chirp)[:-1]
+            fft_partial_chirp = np.fft.fft(partial_chirp)
             fft_chirp += fft_partial_chirp
     else:
         for i in range(chirp_factor):
             partial_chirp = chirp[i*block_length:(i+1)*block_length]
-            fft_partial_chirp = np.fft.rfft(partial_chirp)[:-1]
+            fft_partial_chirp = np.fft.fft(partial_chirp)
             fft_chirp += fft_partial_chirp
 
-    return fft_chirp
-
-def remove_tracking(binary):
-    length = used_bins*2//tracking_length
-    output = ""
-    list_of_lists = [binary[(i*length)+2:(i+1)*length] for i in range(num_blocks*tracking_length)]
-    for list in list_of_lists:
-        for bit in list:
-            output += bit
-    return output
+    return fft_chirp /chirp_factor
 
 def apply_poly_to_fft(data_fft,coefs,N0):
     data_fft_ = data_fft
@@ -47,21 +38,20 @@ def apply_poly_to_fft(data_fft,coefs,N0):
     #     data_fft[k] = data_fft[k] * angle
     return angles
 
-def sigmoid(x):
-  return 1 / (1 + np.exp(-x))
-
-def llhr(fft,channel_inv,sigma2):
+def llhr(fft,channel_inv,sigma2_):
 
     yl = []
     for k in range(len(fft)):
-        co =  (channel_inv[k])*(np.conj(channel_inv[k]))/(sigma2)
-        l1 = np.real(np.sqrt(2)*np.imag(fft[k])*co)
-        l2 = np.real(np.sqrt(2)*np.real(fft[k])*co)
+        co =  np.real((1/channel_inv[k])*(np.conj(1/channel_inv[k]))/(sigma2_))
+        #print(co)
+        l1 = np.sqrt(2)*np.imag(fft[k])*co
+        l2 = np.sqrt(2)*np.real(fft[k])*co
         yl.append(l1)
         yl.append(l2)
+    #print(yl[:4])
     return np.array(yl)
 
-def binary_to_fft(binary):
+def binary_to_values(binary):
     fft = np.zeros(used_bins,dtype=np.complex_)
     for k in range(used_bins):
         value = binary[k*2:(k+1)*2]
@@ -77,9 +67,9 @@ def binary_to_fft(binary):
         fft[k] = point 
     return fft
 
-def blocks_to_binary(blocks):
+def blocks_to_binary(blocks_):
     binary_big = []
-    for block in blocks:
+    for block in blocks_:
         binary = []
         for value in block:
             output = [1,1]
@@ -93,9 +83,9 @@ def blocks_to_binary(blocks):
 
 def decode(binary):
     output = []
-    for i in range(len(binary)//num_blocks):
-        chunk = binary[i*used_bins*2:(i+1)*used_bins*2]
-        chunk = chunk[:2*used_bins_data]
+    for i in range(len(binary)*ldpc_factor//num_blocks):
+        chunk = binary[i*used_bins*2//ldpc_factor:(i+1)*used_bins*2//ldpc_factor]
+        chunk = chunk[:2*used_bins_data//ldpc_factor]
         output.extend(chunk)
     return np.array(output)
 
@@ -105,32 +95,27 @@ def decode(binary):
 fs = 48000
 block_length = 4096 
 prefix_length = 512 
-N0 = 85 # 85 # 42
-N1 = 850 # 850 # 690
+N0 = 85 
+N1 = 850 # redundant atm as size determined by ldpc code
 ###
 recording_time = 13
 chirp_factor = 16
-tracking_length = 0
 num_blocks = 100
-c = ldpc.code('802.11n','1/2',54)
+c = ldpc.code('802.11n','3/4',54)
+ldpc_factor = 1
 ###
-used_bins = c.N//2
-chirp_length = block_length * chirp_factor
-used_bins_data = c.K//2 # used_bins - tracking_length
-
+used_bins = (c.N//2)*ldpc_factor
+chirp_length = block_length*chirp_factor
+used_bins_data = (c.K//2)*ldpc_factor
 ###
 record = False
 use_test_signal = False
 
-def run(variable = 1):
-    
-
+def run(p):
 
     ### sync function ###
     sync_chirp = playsound.gen_chirp(N0,N0+used_bins,fs,chirp_length,block_length)
     sync = np.concatenate((sync_chirp[-prefix_length:],sync_chirp))
-    
-
 
 
     ### start recording ###
@@ -144,139 +129,104 @@ def run(variable = 1):
     else:
         if (use_test_signal):
             recording = playsound.load_signal(f'test_signals/test_signal_{c.standard}_{c.N}_{c.K}_{num_blocks}b.wav')
-            
         else:
-            recording = playsound.load_signal(f'recordings/recording_{c.standard}_{c.N}_{c.K}_{num_blocks}b.wav') #   #(f'recordings/recording_{f0}_{f1}_{num_blocks}b.csv') #
-            #playsound.save_signal(recording,fs,f'recordings/recording_{chirp_factor}c_{tracking_length}t_{num_blocks}b.wav')
-
+            recording = playsound.load_signal(f'recordings/recording_{c.standard}_{c.N}_{c.K}_{num_blocks}b.wav')
         recording = recording.flatten()
     print("done")
-
+   
 
     ### find position ###
     print("synchronizing...",end="",flush=True)
     len_sync_chirp = len(sync_chirp)
     correlation = scipy.signal.correlate(recording, sync)
-    position = np.argmax(correlation) + 1 # +1 moves slopes upwards CCW
+    position = np.argmax(correlation) + 1 # +1 moves slopes upwards CCW, seems to generally help?
     print("done")
+
 
 
     ### estimate channel ###
     print("estimating channel...",end="",flush=True)
     chirp = recording[position - len_sync_chirp :position]
-    #chirp *= scipy.signal.windows.hamming(block_length)
     fft_chirp = get_fft_chirp(chirp)
+    fft_chirp /=4 # chirp tends to be louder we adjust this so that the first block is well normalised, automatically adjusted for subsequent blocks
+    
     fft_sync_chirp = get_fft_chirp(sync_chirp)
-    channel = fft_chirp/fft_sync_chirp
+    fft_sync_chirp /= np.mean(np.abs(fft_sync_chirp)**2)
 
+    channel = fft_chirp/fft_sync_chirp
     channel = channel[N0:N0+used_bins]
     channel_inv = 1/channel
-    channel_inv_static = channel_inv
-    channel_inv /= chirp_factor
+    channel_inv *=np.sqrt(2) # from unit circle to points 1,1 etc
+    
     channel_i = np.concatenate((np.ones(N0),channel,np.ones(block_length//2 - N0 - used_bins)))
     impulse = np.fft.irfft(channel_i)
     print("done")
 
 
     ### reverse channel effects ###
-    print("channel correction...",end="",flush=True)
+    print("channel correction...",end="\n",flush=True)
     blocks = []
     blocks_ideal= []
-    block_index = 0
     order = 2
-    coefs = np.zeros(order)
+    sigma2 = 1
+    block_index = 0
     group_length = prefix_length + block_length
-    #spacing = used_bins//(tracking_length)
-    sigma2 = 0
-    yl_list = []
-    channel_estimates = []
-   
+    start = position + prefix_length
+    end = position + group_length
+
     while True:
-
-        start = position + prefix_length + group_length * block_index
-        end = position + group_length + group_length * block_index
         data = recording[start:end]
-
         data_fft = np.fft.rfft(data)
         data_fft = data_fft[N0:N0+used_bins]
 
-
         data_fft *= channel_inv
 
-        if block_index == 0:  # known block
-            known_bits = e.random_binary(used_bins_data*2)
-            known_bits = c.encode(known_bits)
-            known_fft = binary_to_fft(known_bits)
-            complex_noise = known_fft - channel_inv*data_fft 
-            sigma2 = np.mean(np.imag(complex_noise)**2) + np.mean(np.real(complex_noise)**2)
-            print(sigma2)
 
-
+        # if block_index == 0:  # known block                   # can be useful to treat first block as known for a difficult signal / higher rate code
+        #     known_bits = e.random_binary(used_bins_data*2)
+        #     known_bits = e.encode_blocks(known_bits,1)
+        #     known_fft = binary_to_values(known_bits)
+        #     complex_noise = known_fft - data_fft 
+        #     sigma2 =  np.mean(np.imag(complex_noise)**2) + np.mean(np.real(complex_noise)**2)
+        #     #no factor of sigma  makes a difference
         
         yl = llhr(data_fft,channel_inv,sigma2)
-        app, it = c.decode(yl,'sumprod')
-        #print(app)
+        app = []
+        for i in range(ldpc_factor):
+            app_temp, it = c.decode(yl[i*c.N:(i+1)*c.N],'sumprod2')
+            app.extend(app_temp)
         binary = [ 1 if bitl > 0 else 0 for bitl in app]
-        data_fft_ideal = binary_to_fft(binary)
-        estimate_new = np.ones(used_bins,dtype=np.complex_)
-        for k in range(used_bins):
-            estimate_new[k] = (data_fft_ideal[k]/data_fft[k])
-        estimate_new = estimate_new**(1/4)
-        channel_inv *= estimate_new
-        data_fft *= estimate_new
+        data_fft_ideal = binary_to_values(binary)
+        channel_inv *= (data_fft_ideal/data_fft)**(1/2) #**(1/(1+a-(a/(b*block_index+1)))) # crazy function gives more weight at the start and less towards thte end, tapering to a constant 1/a with speed b a = 4, b = 0.05
 
         
-
         inds = np.where(data_fft_ideal == 1 + 1j)[0]
         pilots = np.angle(data_fft[inds]) - np.pi/4
         freqs = inds + N0
         coefs_new = np.polyfit(freqs,pilots,order - 1)
-        angles = apply_poly_to_fft(data_fft,coefs_new,N0)**(1/4)
+        angles = apply_poly_to_fft(data_fft,coefs_new,N0)
 
         channel_inv *= angles
         data_fft *= angles
 
-        yl = llhr(data_fft,channel_inv,sigma2)
-        app, it = c.decode(yl)
-        binary = [ 1 if bitl > 0 else 0 for bitl in app]
-        data_fft_ideal = binary_to_fft(binary)
-
+        complex_noise = data_fft_ideal - data_fft 
+        sigma2 = np.mean(np.imag(complex_noise)**2) + np.mean(np.real(complex_noise)**2) # this also doesn't seem to make a difference
         
-
-        # mean = []                       ## this random little section looks for the mean of the top right values,
-        # for value in data_fft:          ## and adjusts the whole plot so theyre in the centre, gives -0.08% error
-        #     value = np.angle(value)     ## improvement so i guess its staying haha (-0.02% with above algorithm as well)
-        #     if value > 0 and value < np.pi/2:
-        #         mean.append(value)
-        # mean = np.sum(mean)/len(mean) - np.pi/4
-        # data_fft = data_fft*np.exp(-1j*mean)
-
-
-        # estimate_new = np.ones(used_bins,dtype=np.complex_)
-        # for k in range(used_bins):
-        #     value = np.angle(data_fft[k])
-        #     if value > 0  and value < np.pi/2 :
-        #         new_value =  1 +1j
-        #     elif value > np.pi/2  and value < np.pi :
-        #         new_value = -1 +1j
-        #     elif value < 0  and value > -np.pi/2 :
-        #         new_value =  1 -1j
-        #     elif value < -np.pi/2  and value > -np.pi :
-        #         new_value = -1 -1j
-
-        #     estimate_new[k] = (new_value)/(data_fft[k])
-
-        #channel_inv *= estimate_new**(1/128)
-                
+        # yl = llhr(data_fft,channel_inv,sigma2)
+        # app, it = c.decode(yl)
+        # binary = [ 1 if bitl > 0 else 0 for bitl in app]  #!# might be worth doing a second pass??  #!#
+        # data_fft_ideal = binary_to_values(binary) 
 
   
 
         blocks_ideal.append(data_fft_ideal)
         blocks.append(data_fft)
 
+        start += group_length
+        end += group_length
         block_index += 1
+
         if block_index == num_blocks:
-            print("here")
             break
     print("done")
 
@@ -284,7 +234,7 @@ def run(variable = 1):
 
     ### decode signal ###
     print("decoding...",end="",flush=True)
-    r_bits = blocks_to_binary(blocks_ideal)
+    r_bits = blocks_to_binary(blocks_ideal) # blocks ideal is the same as blocks??? !! blocks gives FEWER ERORRS???? something is going on here
     t_bits_information = e.random_binary(used_bins_data*2*num_blocks)
     t_bits = e.encode_blocks(t_bits_information)
     print("done")
@@ -294,8 +244,7 @@ def run(variable = 1):
     ### add colours ###         
     colours = []
     for i in range(len(t_bits)//2):
-        bit = list(t_bits[i*2:(i+1)*2])
-       
+        bit = list(r_bits[i*2:(i+1)*2])  # r_bits for guessed colours, t_bits for known colours
         if (bit == [0,0]):
             colours.append("r")
         elif (bit == [0,1]):
@@ -304,46 +253,46 @@ def run(variable = 1):
             colours.append("g")
         elif (bit == [1,0]):
             colours.append("b")
-        #print(bit,colours[i])
 
-    t_bits = t_bits_information
-    r_bits = decode(r_bits)
+
 
     ### compare signals ###
-    #t_bits = remove_tracking(t_bits)
+    t_bits = t_bits_information
+    r_bits = decode(r_bits)
+    
     total_errors = 0
     error_list = []
     for b in range(len(blocks)):
         r = r_bits[b*used_bins_data*2:(b+1)*used_bins_data*2]
         t = t_bits[b*used_bins_data*2:(b+1)*used_bins_data*2]
-        count = sum(1 for a,b in zip(r,t)if a != b)* 100 /(used_bins_data*2)
+        count = sum(1 for a,b in zip(r,t) if a != b)* 100 / (used_bins_data*2)
         error_list.append(count)
         total_errors += count
         errors = str(count)[:4] + "%"
         print(f"block {b}, {errors} errors")
-        view = 20
-        print(" rec:",r[:view],"...",r[-view:])
-        print("sent:",t[:view],"...",t[-view:],"\n")
+        # view = 20
+        # print(" rec:",r[:view],"...",r[-view:])
+        # print("sent:",t[:view],"...",t[-view:],"\n")
 
     total_errors = total_errors/num_blocks
     print(f"TOTAL ERRORS: {(str(total_errors))}%")
 
 
 
-    # ### view plots ###
-    #visualize.big_plot([blocks[0],blocks[500],blocks[999]],fs,title="test",colours=np.concatenate((colours[0:used_bins],colours[500*used_bins:501*used_bins],colours[999*used_bins:1000*used_bins])))
-    #visualize.big_plot(blocks[:10],fs,title="test",colours=(colours[0:used_bins*10]))
+    # # ### view plots ###
+    # #visualize.big_plot([blocks[0],blocks[500],blocks[999]],fs,title="test",colours=np.concatenate((colours[0:used_bins],colours[500*used_bins:501*used_bins],colours[999*used_bins:1000*used_bins])))
+    # #visualize.big_plot(blocks[:10],fs,title="test",colours=(colours[0:used_bins*10]))
     visualize.big_plot(blocks[:8],fs,title="test",colours=colours)
     visualize.plot_constellation(np.array(blocks).flatten(),colours=colours)
 
-    #plt.plot(correlation)
-    #plt.show()
+    # #plt.plot(correlation)
+    # #plt.show()
 
-    #visualize.plot_channel(impulse)
+    # #visualize.plot_channel(impulse)
 
-    plt.plot(error_list)
-    plt.ylim(0,20)
-    plt.show()
+    # plt.plot(error_list)
+    # plt.ylim(0,20)
+    # plt.show()
 
     return total_errors
 
@@ -357,7 +306,8 @@ if __name__ == "__main__":
     # plt.xlabel('clumping factor')
     # plt.ylabel(r'% errors')
     # plt.show()
+    #print(scipy.optimize.dual_annealing(run,([1,50],[0,1])).x)
 
-    run()
+    run(1)
 
 

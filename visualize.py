@@ -28,7 +28,7 @@ def plot_constellation(fft,colours,title=""):
     l=np.max(np.absolute(fft))*1.2
     r = np.real(fft)
     i = np.imag(fft)
-    plt.scatter(r,i,s=2,c=colours,alpha=0.1)
+    plt.scatter(r,i,s=2,c=colours,alpha=1)
     plt.axhline(0, color='gray')
     plt.axvline(0, color='gray')
     plt.axis('scaled')

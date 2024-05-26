@@ -1,4 +1,4 @@
-# ldpc
+git pu# ldpc
 This package contains an implementation of encoders and 
 decoders for the low-density parity-check (LDPC) codes
 defined in the IEEE 802.11n and 802.16 families of standards.

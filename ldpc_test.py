@@ -2,11 +2,13 @@ import  py.ldpc as ldpc
 from py.ldpc_awgn import ch2llr
 import numpy as np
 
-c = ldpc.code('802.11n','5/6',54)
+c = ldpc.code('802.16','1/2',30)
 
 from encoder import random_binary
 
-data = random_binary(540*3)
+print(c.K)
+
+data = random_binary(c.K)
 
 print(data[:10])
 x =c.encode(data)
