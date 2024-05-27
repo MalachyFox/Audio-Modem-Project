@@ -81,7 +81,7 @@ def values_to_blocks(phases):
     blocks = []
     for p in range(len(phases)//used_bins):
         block = phases[used_bins * p:used_bins*(1+p)]
-        other_bins_factor = 0.5
+        other_bins_factor = 1
         block = np.concatenate((other_bins_factor*np.exp(1j*(np.random.randint(0,4,N0)*np.pi/2 + np.pi/4)),block,other_bins_factor*np.exp(1j*(np.random.randint(0,4,block_length//2 + 1 - N0 - used_bins)*np.pi/2 + np.pi/4))))
         #block = np.pad(block,(N0,block_length//2 + 1- N0 - used_bins))
         # plt.scatter(list(range(len(block))),np.angle(block))
