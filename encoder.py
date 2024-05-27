@@ -88,7 +88,6 @@ def values_to_blocks(phases):
         b4 = other_bins_factor*np.exp(1j*(np.random.randint(0,4,block_length//2 - N0 - used_bins)*np.pi/2 + np.pi/4))
         b5 = [0]
         block = np.concatenate((b1,b2,b3,b4,b5))
-        print(len(block))
         #block = np.pad(block,(N0,block_length//2 + 1- N0 - used_bins))
         # plt.scatter(list(range(len(block))),np.absolute(block))
         # plt.show()
@@ -102,7 +101,7 @@ def blocks_fft_to_signal(blocks_fft,known_block_signal):
     transmission = np.array([])
     for block in blocks_fft:
         block_signal = np.fft.irfft(block)
-        block_signal /= np.sqrt(np.mean(np.absolute(block_signal)**2))
+        block_signal /= np.mean(np.absolute(block_signal))
         block_signal = np.concatenate((block_signal[-prefix_length:],block_signal))
         transmission = np.concatenate((transmission,block_signal))
     # plt.plot(np.angle(block))
@@ -110,7 +109,7 @@ def blocks_fft_to_signal(blocks_fft,known_block_signal):
     
     chirp = ps.gen_chirp(N0,N0 + used_bins,fs,chirp_length,block_length)
     chirp = np.concatenate((chirp[-prefix_length:],chirp))
-    chirp /= np.sqrt(np.mean(np.absolute(chirp)**2))
+    chirp /= np.mean(np.absolute(chirp))
     transmission = np.concatenate((chirp,known_block_signal,transmission))
     print("done")
     transmission = transmission / np.max(transmission)
@@ -131,7 +130,7 @@ def generate_known_block(seed_=1):
     known_block_signal = np.fft.irfft(values)
     known_block_signal = np.concatenate((known_block_signal[-prefix_length:],known_block_signal))
 
-    return known_block_signal/np.sqrt(np.mean(np.absolute(known_block_signal)**2))
+    return known_block_signal/np.mean(np.absolute(known_block_signal))
 
 if __name__ == "__main__":
     
