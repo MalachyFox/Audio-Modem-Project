@@ -12,16 +12,13 @@ def gen_sine(f,fs,duration):
     transmitted_signal = np.sin(2 * np.pi * t * f / fs)
     return transmitted_signal
 
-def gen_chirp(f0,f1,fs,duration):
-    t = np.linspace(0, duration, int(fs * duration))  # Time array
-    signal = chirp(t, f0, duration, f1, method='linear')
-    #np.concatenate((signal,np.zeros(1000)))
-    #visualize.plot_fft(np.fft.rfft(signal),fs)
+def gen_chirp(N0,N1,fs,num_samples,block_length):
+    t = np.linspace(0, num_samples/fs, num_samples,endpoint=False)  # Time array
+    signal = chirp(t, (N0*fs)/block_length, num_samples/fs, (N1*fs)/block_length, method='linear')
     return signal
 
 def gen_random(samples):
     signal = np.random.random(samples) * 2 - 1
-
     return signal
 
 def save_signal(signal,fs,filename):
@@ -50,7 +47,7 @@ def super_sine(f_array, fs,duration=1):
     t = np.arange(duration * fs)
     transmitted_signal = np.zeros(len(t))
     for f in f_array:
-        transmitted_signal += np.sine(2 * np.pi * t * f / fs)
+        transmitted_signal += np.sin(2 * np.pi * t * f / fs)
     return transmitted_signal/len(f_array)
 
 def double_signal(signal):
@@ -58,11 +55,7 @@ def double_signal(signal):
 
 
 if __name__ == "__main__":
-    fs = 44100
-    signal = gen_chirp( 500,10500,fs,10500*2/fs)
-    signal = double_signal(signal) * 100
-    play_signal(signal,fs)
-
+    pass
     
 #signal = super_sine(np.linspace(500,1000,50),fs,2)
 #print(signal[100:200])

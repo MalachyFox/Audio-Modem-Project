@@ -5,19 +5,18 @@ import matplotlib.pyplot as plt
 import datetime
 
 def plot_channel(channel):
-    plt.stem(range(len(channel)),channel)
+    #plt.stem(range(len(channel)),channel)
+    plt.plot(channel)
     plt.show()
 
-def plot_fft(fft,fs,title=""):
-    n_samples = len(fft)
-    x = np.linspace(0,fs//2,n_samples)
-    print(len(x))
+def plot_fft(fft,fs,colours='b',title=""):
+    freqs = np.fft.fftfreq(len(fft),1/fs)
     fig, ax = plt.subplots(2)
     ax[0].title.set_text('Frequency Domain')
     ax[0].set_xlabel('f / Hz')
     ax[0].set_ylabel('Log10 Ambplitude')
-    ax[0].plot(x,np.log(np.absolute(fft)))
-    ax[1].scatter(x,np.angle(fft),s=4)
+    ax[0].plot(freqs,np.log10(np.absolute(fft)))
+    ax[1].scatter(freqs,np.angle(fft),s=4)
     ax[1].set_xlabel("f / Hz")
     ax[1].set_ylabel('Phase / rad')
     if title != "":
@@ -26,15 +25,15 @@ def plot_fft(fft,fs,title=""):
     
 
 def plot_constellation(fft,colours,title=""):
-    l=abs(np.max(fft))*1.2
+    l=np.max(np.absolute(fft))*1.2
     r = np.real(fft)
     i = np.imag(fft)
-    plt.scatter(r,i,s=6,c=colours,alpha=0.3)
+    plt.scatter(r,i,s=1,c=colours,alpha=1)
     plt.axhline(0, color='gray')
     plt.axvline(0, color='gray')
     plt.axis('scaled')
     avg = np.average(np.absolute(fft))
-    l = avg * 2
+    l = avg * 3
     plt.ylim(-l, l)
     plt.xlim(-l, l)
     if title != "":
@@ -42,7 +41,7 @@ def plot_constellation(fft,colours,title=""):
     plt.show()
 
 def big_plot(blocks,fs,colours,title=""):
-
+    
     fig, axs = plt.subplots(2,len(blocks),sharex='row',sharey='row')
     fig.set_size_inches(18, 6)
 
@@ -54,15 +53,15 @@ def big_plot(blocks,fs,colours,title=""):
 
         x = list(range(len(fft)))
 
-        axs[1,i].scatter(x,np.angle(fft),s=2,c=col,alpha=0.1)
-        axs[1,i].set_xlabel("f / Hz")
+        axs[1,i].scatter(x,np.angle(fft),s=4,alpha=0.5,c=col,)
+        axs[1,i].set_xlabel("bin number")
         axs[1,i].set_ylabel('Phase / rad')
 
 
         r = np.real(fft)
         im = np.imag(fft)
 
-        axs[0,i].scatter(r,im,s=2,c=col,alpha=0.1)
+        axs[0,i].scatter(r,im,s=4,alpha=0.5,c=col)
         axs[0,i].axhline(0, color='gray')
         axs[0,i].axvline(0, color='gray')
         axs[0,i].axis('scaled')

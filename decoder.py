@@ -59,7 +59,6 @@ def divide_ffts(blocks_fft, channel_fft):
 
 
 def blocks_to_bytes(blocks_adj_fft,M=4):
-    print("starting decode...")
 
     blocks_phase = []
     for b in blocks_adj_fft:
