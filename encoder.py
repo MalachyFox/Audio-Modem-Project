@@ -6,7 +6,7 @@ import playsound as ps
 import random
 from matplotlib import pyplot as plt
 from bitstring import BitArray
-import py.ldpc
+from py import ldpc
 
 # with open('weekend-challenge/parsed.tiff',"rb") as file:
 #      file_binary = file.read()
@@ -24,8 +24,9 @@ N0 = 100
 ###
 chirp_factor = 16
 tracking_bins = 0
-c = py.ldpc.code('802.16','3/4',81)
+c = ldpc.code('802.16','3/4',81)
 ldpc_factor = 1
+other_bins_factor = 1
 ###
 used_bins = ( c.N// 2 ) * ldpc_factor
 chirp_length = block_length * chirp_factor
@@ -81,10 +82,15 @@ def values_to_blocks(phases):
     blocks = []
     for p in range(len(phases)//used_bins):
         block = phases[used_bins * p:used_bins*(1+p)]
-        other_bins_factor = 1
-        block = np.concatenate((other_bins_factor*np.exp(1j*(np.random.randint(0,4,N0)*np.pi/2 + np.pi/4)),block,other_bins_factor*np.exp(1j*(np.random.randint(0,4,block_length//2 + 1 - N0 - used_bins)*np.pi/2 + np.pi/4))))
+        b1 = [0]
+        b2 = other_bins_factor*np.exp(1j*(np.random.randint(0,4,N0 - 1)*np.pi/2 + np.pi/4))
+        b3 = block
+        b4 = other_bins_factor*np.exp(1j*(np.random.randint(0,4,block_length//2 - N0 - used_bins)*np.pi/2 + np.pi/4))
+        b5 = [0]
+        block = np.concatenate((b1,b2,b3,b4,b5))
+        print(len(block))
         #block = np.pad(block,(N0,block_length//2 + 1- N0 - used_bins))
-        # plt.scatter(list(range(len(block))),np.angle(block))
+        # plt.scatter(list(range(len(block))),np.absolute(block))
         # plt.show()
         blocks.append(block)
     print("done")
@@ -113,7 +119,7 @@ def blocks_fft_to_signal(blocks_fft,known_block_signal):
 def generate_known_block(seed_=1):
     np.random.seed(seed_)
     graycode = np.random.randint(0,4,block_length//2 - 1)
-    values = graycode * np.pi/2 + np.pi/4
+    values = graycode * (np.pi/2) + np.pi/4
     for i in range(len(values)):
         value = values[i]
         if value > np.pi:
