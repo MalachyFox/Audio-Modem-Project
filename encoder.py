@@ -113,7 +113,7 @@ def blocks_fft_to_signal(blocks_fft,known_block_signal):
 def generate_known_block(seed_=1):
     np.random.seed(seed_)
     graycode = np.random.randint(0,4,block_length//2 - 1)
-    values = graycode * np.pi/2 + np.pi/4
+    values = graycode * (np.pi/2) + np.pi/4
     for i in range(len(values)):
         value = values[i]
         if value > np.pi:
