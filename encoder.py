@@ -130,7 +130,7 @@ def generate_known_block(seed_=1):
     known_block_signal = np.fft.irfft(values)
     known_block_signal = np.concatenate((known_block_signal[-prefix_length:],known_block_signal))
 
-    return known_block_signal/np.mean(np.absolute(known_block_signal)**2)
+    return known_block_signal/np.mean(np.absolute(known_block_signal))
 
 if __name__ == "__main__":
     
