@@ -6,7 +6,7 @@ import playsound as ps
 import random
 from matplotlib import pyplot as plt
 from bitstring import BitArray
-import py.ldpc
+from py import ldpc
 
 # with open('weekend-challenge/parsed.tiff',"rb") as file:
 #      file_binary = file.read()
