@@ -109,7 +109,7 @@ block_length = 4096
 prefix_length = 512 
 N0 = 100
 ###
-recording_time = 40
+recording_time = 14
 chirp_factor = 16
 c = ldpc.code('802.16','3/4',81)
 ldpc_factor = 1
@@ -119,8 +119,8 @@ chirp_length = block_length*chirp_factor
 used_bins_data = (c.K//2)*ldpc_factor
 N1 = N0+ used_bins
 ###
-record = True
-use_test_signal = False
+record = False
+use_test_signal = True
 
 def run(p):
 
@@ -212,9 +212,9 @@ def run(p):
             known_block_t = e.generate_known_block()[prefix_length:]
             data_fft_ideal = np.fft.rfft(known_block_t)[N0:N0+used_bins]
             power = np.sqrt(np.mean(np.absolute(data_fft_ideal)**2))
-            data_fft_ideal /= power
+            data_fft_ideal /= power*np.sqrt(2)/2
 
-            #print("\n",np.mean(np.absolute(data_fft_ideal)))#
+            print("\n",np.mean(np.absolute(data_fft_ideal)))#
             # visualize.plot_fft(data_fft_ideal,fs)
             # visualize.plot_fft(data_fft,fs)
             
@@ -222,7 +222,7 @@ def run(p):
             
             complex_noise = data_fft_ideal - data_fft 
             sigma2 =  np.mean(np.imag(complex_noise)**2) + np.mean(np.real(complex_noise)**2)
-            channel_inv *= (data_fft_ideal/data_fft)**(1/2)
+            channel_inv *= (data_fft_ideal/data_fft)**(1)
             #data_fft *= (data_fft_ideal/data_fft)
             #print("\n",np.mean(np.absolute(data_fft)))
 
@@ -235,7 +235,7 @@ def run(p):
             if it >199 and block_index > 5:  ##first can have too many errors, might be worth sending a warmup known block or a longer chirp?
                 break
             
-            channel_inv *= (data_fft_ideal/data_fft)**(1/2) #**(1/(1+a-(a/(b*block_index+1)))) # crazy function gives more weight at the start and less towards thte end, tapering to a constant 1/a with speed b a = 4, b = 0.05
+            channel_inv *= (data_fft_ideal/data_fft)**(1) #**(1/(1+a-(a/(b*block_index+1)))) # crazy function gives more weight at the start and less towards thte end, tapering to a constant 1/a with speed b a = 4, b = 0.05
             
 
             ## do linear shift
@@ -279,7 +279,7 @@ def run(p):
     ### add colours ###    
     colours = []
     for i in range(len(r_bits)//2):
-        bit = list(r_bits[i*2:(i+1)*2])  # r_bits for guessed colours, t_bits for known colours
+        bit = list(t_bits[i*2:(i+1)*2])  # r_bits for guessed colours, t_bits for known colours
         if (bit == [0,0]):
             colours.append("r")
         elif (bit == [0,1]):
