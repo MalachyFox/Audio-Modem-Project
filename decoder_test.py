@@ -6,7 +6,7 @@ import playsound
 import matplotlib.pyplot as plt
 import decoder as d
 import encoder as e
-import py.ldpc as ldpc
+from py import ldpc
 
 def get_fft_chirp(chirp,overlap = False):
     fft_chirp = np.zeros(block_length,dtype=np.complex_)
@@ -107,7 +107,7 @@ def do_ldpc(data_fft,channel_inv,sigma2,pr=False):
 fs = 48000
 block_length = 4096 
 prefix_length = 512 
-N0 = 50
+N0 = 100
 ###
 recording_time = 40
 chirp_factor = 16
@@ -120,7 +120,7 @@ used_bins_data = (c.K//2)*ldpc_factor
 N1 = N0+ used_bins
 ###
 record = False
-use_test_signal = False
+use_test_signal = True
 
 def run(p):
 
@@ -152,8 +152,9 @@ def run(p):
     print("synchronizing...",end="",flush=True)
     len_sync_chirp = len(sync_chirp)
     correlation = scipy.signal.correlate(recording[:fs*10], sync) # checks first 10s
-    position = np.argmax(correlation) + 1 # +1 moves slopes upwards CCW, seems to generally help?
+    position = np.argmax(correlation) +1 # +1 moves slopes upwards CCW, seems to generally help?
     print("done")
+
 
 
 
@@ -166,7 +167,7 @@ def run(p):
     channel = fft_chirp/fft_sync_chirp
     channel = channel[N0:N0+used_bins]
     channel_inv = 1/channel
-    channel_i = np.concatenate((np.ones(N0),channel,np.ones(block_length//2 - N0 - used_bins)))
+    channel_i = np.concatenate((np.ones(N0),channel,np.ones(block_length//2 + 1 - N0 - used_bins)))
     impulse = np.fft.irfft(channel_i)
     print("done")
 
@@ -187,52 +188,67 @@ def run(p):
     while True:
         print(f"\rblock: {block_index:04d}",end="")
         data = recording[start:end]
-        data_fft = np.fft.rfft(data)
+        if len(data) == 0:
+            break
+        #plt.plot(data)
+        #plt.show()
+        data_fft = np.fft.rfft(data)[:-1]
         data_fft = data_fft[N0:N0+used_bins]
+        #print("\n",np.mean(np.absolute(data_fft)))
         data_fft *= channel_inv
+        #print("\n",np.mean(np.absolute(data_fft)))
+        #visualize.plot_fft(data_fft,fs)
 
 
 
         ## normalise first block and find sigma.
-        power = np.mean(np.absolute(data_fft))
+        
         if block_index == 0:
-            data_fft /= power*np.sqrt(2)/2 # set avg power to 2
-            channel_inv /= power*np.sqrt(2)/2
+            power = np.sqrt(np.mean(np.absolute(data_fft)**2))
+            data_fft /=power*np.sqrt(2)/2
+            channel_inv /=power*np.sqrt(2)/2
 
         if block_index == 0:  # known block
-            known_bits = e.random_binary(used_bins_data*2)
-            known_bits = e.encode_blocks(known_bits)
-            #sign = np.sign(np.real(np.mean(channel_inv))*np.imag(np.mean(channel_inv)))
-            data_fft_ideal = -1 * binary_to_values(known_bits)  # no idea why this has to be negative....
+            known_block_t = e.generate_known_block()[prefix_length:]
+            data_fft_ideal = np.fft.rfft(known_block_t)[N0:N0+used_bins]
+            power = np.sqrt(np.mean(np.absolute(data_fft_ideal)**2))
+            data_fft_ideal /= power
+
+            #print("\n",np.mean(np.absolute(data_fft_ideal)))#
+            # visualize.plot_fft(data_fft_ideal,fs)
+            # visualize.plot_fft(data_fft,fs)
+            
+            #sign = np.sign(np.real(np.mean(channel_inv))*np.imag(np.mean(channel_inv)))  # no idea why this has to be negative....
+            
             complex_noise = data_fft_ideal - data_fft 
             sigma2 =  np.mean(np.imag(complex_noise)**2) + np.mean(np.real(complex_noise)**2)
             channel_inv *= (data_fft_ideal/data_fft)**(1/2)
-            data_fft *= (data_fft_ideal/data_fft)
+            #data_fft *= (data_fft_ideal/data_fft)
+            #print("\n",np.mean(np.absolute(data_fft)))
 
 
         ## do first ldpc
-        data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2)
-
-        if it >199 and block_index > 5:  ##first can have too many errors, might be worth sending a warmup known block or a longer chirp?
-            num_blocks = block_index
-            break
         
-        channel_inv *= (data_fft_ideal/data_fft)**(1/2) #**(1/(1+a-(a/(b*block_index+1)))) # crazy function gives more weight at the start and less towards thte end, tapering to a constant 1/a with speed b a = 4, b = 0.05
-        
-
-        ## do linear shift
-        inds = np.where(data_fft_ideal == 1 + 1j)[0]
-        pilots = np.angle(data_fft[inds]) - np.pi/4
-        freqs = inds + N0
-        coefs_new = np.polyfit(freqs,pilots,order - 1)
-        angles = apply_poly_to_fft(data_fft,coefs_new,N0)
-
-        channel_inv *= angles
-        data_fft *= angles
-
-
-        ## do 2nd ldpc
         if block_index != 0:
+            data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2)
+
+            if it >199 and block_index > 5:  ##first can have too many errors, might be worth sending a warmup known block or a longer chirp?
+                break
+            
+            channel_inv *= (data_fft_ideal/data_fft)**(1/2) #**(1/(1+a-(a/(b*block_index+1)))) # crazy function gives more weight at the start and less towards thte end, tapering to a constant 1/a with speed b a = 4, b = 0.05
+            
+
+            ## do linear shift
+            inds = np.where(data_fft_ideal == 1 + 1j)[0]
+            pilots = np.angle(data_fft[inds]) - np.pi/4
+            freqs = inds + N0
+            coefs_new = np.polyfit(freqs,pilots,order - 1)
+            angles = apply_poly_to_fft(data_fft,coefs_new,N0)
+
+            channel_inv *= angles
+            data_fft *= angles
+
+        
             complex_noise = data_fft_ideal - data_fft 
             sigma2 = np.mean(np.imag(complex_noise)**2) + np.mean(np.real(complex_noise)**2) # this also doesn't seem to make a difference
         
@@ -240,13 +256,13 @@ def run(p):
 
 
         ## clean up
-        blocks_ideal.append(data_fft_ideal)
-        blocks.append(data_fft)
+            blocks_ideal.append(data_fft_ideal)
+            blocks.append(data_fft)
 
         start += group_length
         end += group_length
         block_index += 1
-
+    num_blocks = block_index
     print("\ndone")
 
 
@@ -254,7 +270,7 @@ def run(p):
     ### decode signal ###
     print("decoding...",end="",flush=True)
     r_bits = blocks_to_binary(blocks_ideal)
-    t_bits_information = e.random_binary(used_bins_data*2*(num_blocks))
+    t_bits_information = e.random_binary(used_bins_data*2*(num_blocks -1))
     t_bits = e.encode_blocks(t_bits_information)
     print("done")
 
