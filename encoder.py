@@ -8,10 +8,6 @@ from matplotlib import pyplot as plt
 from bitstring import BitArray
 from py import ldpc
 
-# with open('weekend-challenge/parsed.tiff',"rb") as file:
-#      file_binary = file.read()
-
-# binary = BitArray(file_binary).bin
 
 
 
@@ -19,21 +15,21 @@ from py import ldpc
 fs = 48000
 block_length = 4096
 prefix_length = 512 
-N0 = 100
+B0 = 100
 #N1 = 850
 ###
 chirp_factor = 16
 tracking_bins = 0
-c = ldpc.code('802.16','3/4',81)
+c = ldpc.code('802.16','1/2',54)
 ldpc_factor = 1
 other_bins_factor = 1
 ###
 used_bins = ( c.N// 2 ) * ldpc_factor
 chirp_length = block_length * chirp_factor
 used_bins_data = ( c.K // 2 ) * ldpc_factor
-N1 = N0+ used_bins
+B1 = B0+ used_bins
 ###
-play = False
+play = True
 save = True
 
 
@@ -45,7 +41,7 @@ def random_binary(N):
 def correct_binary_length(binary):
     number = used_bins_data*2 - (len(binary) % (used_bins_data*2))
     if number != used_bins_data*2:
-        binary = np.pad(binary,(0,number))
+        binary = np.concatenate((binary,np.random.randint(0,2,number)))
     return binary
 
 def encode_blocks(binary):
@@ -75,7 +71,7 @@ def binary_to_values(binary):
             output += 2
         values.append(output)
     print("done")
-    return np.array(values)
+    return np.array(values)/np.sqrt(2)
 
 def values_to_blocks(phases):
     print("values into blocks...",end="",flush=True)
@@ -83,9 +79,9 @@ def values_to_blocks(phases):
     for p in range(len(phases)//used_bins):
         block = phases[used_bins * p:used_bins*(1+p)]
         b1 = [0]
-        b2 = other_bins_factor*np.exp(1j*(np.random.randint(0,4,N0 - 1)*np.pi/2 + np.pi/4))
+        b2 = other_bins_factor*np.exp(1j*(np.random.randint(0,4,B0 - 1)*np.pi/2 + np.pi/4))
         b3 = block
-        b4 = other_bins_factor*np.exp(1j*(np.random.randint(0,4,block_length//2 - N0 - used_bins)*np.pi/2 + np.pi/4))
+        b4 = other_bins_factor*np.exp(1j*(np.random.randint(0,4,block_length//2 - B0 - used_bins)*np.pi/2 + np.pi/4))
         b5 = [0]
         block = np.concatenate((b1,b2,b3,b4,b5))
         #block = np.pad(block,(N0,block_length//2 + 1- N0 - used_bins))
@@ -101,69 +97,162 @@ def blocks_fft_to_signal(blocks_fft,known_block_signal):
     transmission = np.array([])
     for block in blocks_fft:
         block_signal = np.fft.irfft(block)
-        block_signal /= np.mean(np.absolute(block_signal))
+        block_signal /= np.sqrt(np.mean(np.absolute(block_signal)**2))
         block_signal = np.concatenate((block_signal[-prefix_length:],block_signal))
         transmission = np.concatenate((transmission,block_signal))
     # plt.plot(np.angle(block))
     # plt.show()
-    
-    chirp = ps.gen_chirp(N0,N0 + used_bins,fs,chirp_length,block_length)
-    chirp = np.concatenate((chirp[-prefix_length:],chirp))
-    chirp /= np.mean(np.absolute(chirp))
-    transmission = np.concatenate((chirp,known_block_signal,transmission))
-    print("done")
+    transmission = np.concatenate((known_block_signal,transmission))
     transmission = transmission / np.max(transmission)
+    # plt.plot(transmission)
+    # plt.show()
+    chirp = ps.gen_chirp(B0,B0 + used_bins,fs,chirp_length,block_length)
+    chirp = np.concatenate((chirp[-prefix_length:],chirp))
+
+    chirp /= np.max(np.absolute(chirp))
+    transmission = np.concatenate((chirp,transmission))
+    transmission /= np.max(np.absolute(transmission))
+    print("done")
+    
     return transmission
 
 def generate_known_block(seed_=1):
     np.random.seed(seed_)
     graycode = np.random.randint(0,4,block_length//2 - 1)
-    values = graycode * (np.pi/2) + np.pi/4
-    for i in range(len(values)):
-        value = values[i]
-        if value > np.pi:
-            values[i] = -(2*np.pi - value)
-    values = np.exp(1j*values)
-    
-    values = np.concatenate(([0],values,[0]))
+    #print(graycode)
+    # values = graycode * (np.pi/2) + np.pi/4
+    # for i in range(len(values)):
+    #     value = values[i]
+    #     if value > np.pi:
+    #         values[i] = -(2*np.pi - value)
+    # values = np.exp(1j*values)
+    values = []
+    for g in graycode:
+        output = -1 + -1j
+        value =f"{g:02b}"
+        if int(value[0]) == 0:
+            output += 2j
+        if int(value[1]) == 0:
+            output += 2
+        values.append(output)
+    #print(values)
+    values = np.concatenate(([0],values,[0]))/np.sqrt(2)
     #v.plot_fft(values,fs)
     known_block_signal = np.fft.irfft(values)
     known_block_signal = np.concatenate((known_block_signal[-prefix_length:],known_block_signal))
 
-    return known_block_signal/np.mean(np.absolute(known_block_signal))
+    return known_block_signal/np.sqrt(np.mean(np.absolute(known_block_signal)**2))
+
+def load_file(filename = "moomoo.tif"):
+    ### load file
+    with open("./sendable_files/" + filename,"rb") as file:
+        file_binary = file.read()
+    binary = np.array([int(b) for b in BitArray(file_binary).bin])
+    return binary
+    
+def add_header(binary,filename):
+    ### prepare header
+    filesize = len(binary)
+    head = filename + "/" + str(filesize)
+    head = bytearray(head,"utf8")
+    head_old = [f'{int(bin(byte)[2:]):08d}' for byte in head]
+    head= []
+    for byte in head_old:
+        for bit in byte:
+            head.append(int(bit))
+    head = np.array(head)
+    binary = np.concatenate((np.zeros(8,dtype=int),head,np.zeros(8,dtype=int),binary))
+    return binary
+
+def xor_binary(binary):
+
+    np.random.seed(2)
+    binary = (binary + np.random.randint(0,2,len(binary))) %2
+
+    return binary
+
+def handle_header(binary):
+    bytes_list = []
+    for i in range(len(binary)//8):
+        byte = binary[i*8:(i+1)*8]
+        #print(byte)
+        byte_str = ""
+        for b in byte:
+            byte_str += str(b)
+        #byte_str = "0b" + byte_str
+        bytes_list.append(int(byte_str,2))
+    indices = []
+    for i in range(len(bytes_list)):
+        if bytes_list[i] == 0:
+            indices.append(i)
+        if len(indices) == 2:
+            break
+    header = bytes_list[indices[0] + 1: indices[1]]
+    output = ""
+    for h in header:
+        output += chr(h)
+    #print(indices)
+    filename, size = output.split("/")
+    size = int(size)
+    data = bytes_list[indices[1] + 1:]
+    data = data[:size*8]
+    #print([chr(a) for a in data[:10]])
+    
+    return filename, size, bytes(data)
+
+    
 
 if __name__ == "__main__":
     
-    binary = random_binary(used_bins_data*100*2)
+    filename = 'moomoo.tif'
+    binary = load_file(filename)
+    binary = add_header(binary,filename)
+    binary = xor_binary(binary)
+
+
+
+    #binary = random_binary(used_bins_data*250*2)
     len_binary_data = len(binary)
     binary = correct_binary_length(binary)
     binary = encode_blocks(binary)
-    values = binary_to_values(binary)/np.sqrt(2)
+    values = binary_to_values(binary)
     blocks_fft = values_to_blocks(values)
     known_block_signal = generate_known_block()
     signal = blocks_fft_to_signal(blocks_fft,known_block_signal)
-    plt.plot(signal)
-    plt.show()
+
+
+
     print()
-    print(f"fs:       ",fs)
-    print(f'N0:       ',N0)
-    print(f'N1:       ',N0 + used_bins)
-    print(f"blck len: ",block_length)
-    print(f"prfx len: ",prefix_length)
-    print(f'ldpc:      {c.standard} {c.K/c.N} {c.z}')
+    print(f"fs:         {fs}Hz")
+    print(f'B0:        ',B0)
+    print(f'B1:        ',B0 + used_bins)
+    print(f"block len: ",block_length)
+    print(f"prefix len:",prefix_length)
+    print(f"chirp len:  {chirp_factor} x {block_length}")
+    print(f"chirp frqs: {B0*fs/block_length}Hz -> {B1*fs/block_length}Hz")
+    print(f'LDPC:       {c.standard}, {c.K/c.N}, {c.z}')
     print()
-    print(f"num blcks:",len(blocks_fft))
-    print(f"time:     ",f"{str(len(signal)/fs)[:4]}s")
-    print(f"size:      {str(len_binary_data/(8*1000))[:4]}KB")
-    print(f"rate:      {str(len_binary_data*2/(2*len(signal)))[:4]}")
-    print(f"byterate:  {str(len_binary_data*fs/(8*1000*len(signal)))[:4]}KB/s")
+    print(f'xor seed:         {2}')
+    print(f'known block seed: {1}')
+    print(f'across bins:      [1,2047] inclusive')
+    print(f'graycoding: zigzag-benson method')
+    print()
+    print(f"num blocks: {len(blocks_fft)} + 1 known block")
+    print(f"time:       {str(len(signal)/fs)[:4]}s")
+    print(f"size:       {str(len_binary_data/(8*1000))[:4]}KB")
+    print(f"efficiency: {str(len_binary_data*2/(2*len(signal)))[:4]}")
+    print(f"byte-rate:  {str(len_binary_data*fs/(8*1000*len(signal)))[:4]}kB/s")
     print()
 
-    gain = 1
     if save == True:
-        ps.save_signal(signal,fs,f'test_signals/test_signal_{c.standard}_{c.N}_{c.K}_{N0}_{N1}.wav')
+        #ps.save_signal(signal,fs,f'test_signals/cat.wav')
+        ps.save_signal(signal,fs,f'test_signals/test_signal_{c.standard}_{c.N}_{c.K}_{B0}_{B1}.wav')
+    
     if play == True:
-        ps.play_signal(signal*gain ,fs)
+        ps.play_signal(signal ,fs)
+
+    # plt.plot(signal)
+    # plt.show()
     
     
 

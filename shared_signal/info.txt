@@ -1,0 +1,19 @@
+fs:         48000Hz
+B0:         100
+B1:         748
+block len:  4096
+prefix len: 512
+chirp len:  16 x 4096
+chirp frqs: 1171.875Hz -> 8765.625Hz
+LDPC:       802.16, 0.5, 54
+
+xor seed:         2
+known block seed: 1
+across bins:      [1,2047] inclusive
+graycoding: zigzag-benson method
+
+num blocks: 208 + 1 known block
+time:       21.4s
+size:       16.7KB
+efficiency: 0.13
+byte-rate:  0.78kB/s

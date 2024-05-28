@@ -42,7 +42,7 @@ def llhr(fft,channel_inv,sigma2_):
 
     yl = []
     for k in range(len(fft)):
-        co =  np.real((1/channel_inv[k])*(np.conj(1/channel_inv[k]))/(sigma2_))
+        co =  np.sqrt(2) * np.real((1/channel_inv[k])*(np.conj(1/channel_inv[k]))/(sigma2_))
         #print(co)
         l1 = np.sqrt(2)*np.imag(fft[k])*co
         l2 = np.sqrt(2)*np.real(fft[k])*co
@@ -109,9 +109,9 @@ block_length = 4096
 prefix_length = 512 
 N0 = 100
 ###
-recording_time = 14
+recording_time = 28
 chirp_factor = 16
-c = ldpc.code('802.16','3/4',81)
+c = ldpc.code('802.16','1/2',54)
 ldpc_factor = 1
 ###
 used_bins = (c.N//2)*ldpc_factor
@@ -119,8 +119,8 @@ chirp_length = block_length*chirp_factor
 used_bins_data = (c.K//2)*ldpc_factor
 N1 = N0+ used_bins
 ###
-record = True
-use_test_signal = False
+record = False
+use_test_signal = True
 
 def run(p):
 
@@ -152,7 +152,7 @@ def run(p):
     print("synchronizing...",end="",flush=True)
     len_sync_chirp = len(sync_chirp)
     correlation = scipy.signal.correlate(recording[:fs*10], sync) # checks first 10s
-    position = np.argmax(correlation) +1 # +1 moves slopes upwards CCW, seems to generally help?
+    position = np.argmax(correlation) +1# +1 moves slopes upwards CCW, seems to generally help?
     print("done")
 
 
@@ -204,40 +204,40 @@ def run(p):
         ## normalise first block and find sigma.
         
         if block_index == 0:
-            power = np.mean(np.absolute(data_fft))
+            power = np.sqrt(np.mean(np.absolute(data_fft))**2)
             data_fft /=power*np.sqrt(2)/2
             channel_inv /=power*np.sqrt(2)/2
 
         if block_index == 0:  # known block
             known_block_t = e.generate_known_block()[prefix_length:]
             data_fft_ideal = np.fft.rfft(known_block_t)[N0:N0+used_bins]
-            power = np.mean(np.absolute(data_fft_ideal))
+            power = np.sqrt(np.mean(np.absolute(data_fft_ideal))**2)
             data_fft_ideal /= power*np.sqrt(2)/2
 
 
             #print("\n",np.mean(np.absolute(data_fft_ideal)))#
-            # visualize.plot_fft(data_fft_ideal,fs)
+            
             # visualize.plot_fft(data_fft,fs)
             
             #sign = np.sign(np.real(np.mean(channel_inv))*np.imag(np.mean(channel_inv)))  # no idea why this has to be negative....
             
             complex_noise = data_fft_ideal - data_fft 
-            sigma2 =  np.mean(np.imag(complex_noise)**2) + np.mean(np.real(complex_noise)**2)
-            
+            sigma2 =  np.mean(np.absolute(complex_noise)**2)  # 0.5 represents 1/Amplitude**2 amp is sqrt2
             channel_inv *= (data_fft_ideal/data_fft)**(1/2)
             #data_fft *= (data_fft_ideal/data_fft)
             #print("\n",np.mean(np.absolute(data_fft)))
 
 
         ## do first ldpc
-        print(sigma2)
+        #print(sigma2)
         if block_index != 0:
             data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2)
 
             if it >199 and block_index > 5:  ##first can have too many errors, might be worth sending a warmup known block or a longer chirp?
+                print("too many errors")
                 break
             
-            channel_inv *= (data_fft_ideal/data_fft)**(1/2) #**(1/(1+a-(a/(b*block_index+1)))) # crazy function gives more weight at the start and less towards thte end, tapering to a constant 1/a with speed b a = 4, b = 0.05
+            channel_inv *= (data_fft_ideal/data_fft)**(1/2)# **(2/3) #**(1/(1+a-(a/(b*block_index+1)))) # crazy function gives more weight at the start and less towards thte end, tapering to a constant 1/a with speed b a = 4, b = 0.05
             
 
             ## do linear shift
@@ -250,10 +250,10 @@ def run(p):
             channel_inv *= angles
             data_fft *= angles
 
-        
+            
             complex_noise = data_fft_ideal - data_fft 
-            sigma2 = np.mean(np.imag(complex_noise)**2) + np.mean(np.real(complex_noise)**2) # this also doesn't seem to make a difference
-        
+            sigma2 = sigma2 + np.mean(np.absolute(complex_noise)**2) # this also doesn't seem to make a difference
+            sigma2 = sigma2/2
             data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2,pr=True)
 
 
@@ -272,10 +272,17 @@ def run(p):
     ### decode signal ###
     print("decoding...",end="",flush=True)
     r_bits = blocks_to_binary(blocks_ideal)
-    t_bits_information = e.random_binary(used_bins_data*2*(num_blocks -1))
-    t_bits = e.encode_blocks(t_bits_information)
-    print("done")
+    # t_bits_information = e.random_binary(used_bins_data*2*(num_blocks -1))
+    # t_bits = e.encode_blocks(t_bits_information)
+    
+    filename = 'moomoo.tif'
+    t_bits = e.load_file(filename)
+    t_bits = e.add_header(t_bits,filename)
+    t_bits = e.xor_binary(t_bits)
+    t_bits = e.correct_binary_length(t_bits)
+    t_bits = e.encode_blocks(t_bits)
 
+    print("done")
 
 
     ### add colours ###    
@@ -294,8 +301,12 @@ def run(p):
 
 
     ### compare signals ###
-    t_bits = t_bits_information
+    t_bits = decode(t_bits)
+    t_bits = e.xor_binary(t_bits)
+
     r_bits = decode(r_bits)
+    r_bits = e.xor_binary(r_bits)
+
     
     total_errors = 0
     error_list = []
@@ -315,7 +326,9 @@ def run(p):
     total_errors = total_errors/num_blocks
     print(f"TOTAL ERRORS: {total_errors:.4%}")
 
-
+    filename, size, data = e.handle_header(r_bits)
+    with open("./received_files/" + filename,"wb") as output_file:
+        output_file.write(data)
 
     # # ### view plots ###
     # #visualize.big_plot([blocks[0],blocks[500],blocks[999]],fs,title="test",colours=np.concatenate((colours[0:used_bins],colours[500*used_bins:501*used_bins],colours[999*used_bins:1000*used_bins])))
