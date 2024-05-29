@@ -14,8 +14,8 @@ from py import ldpc
 ### STANDARD ###
 fs = 48000
 block_length = 4096
-prefix_length = 512 
-B0 = 100
+prefix_length = 1024 
+B0 = 85
 #N1 = 850
 ###
 chirp_factor = 16
@@ -73,20 +73,13 @@ def binary_to_values(binary):
     print("done")
     return np.array(values)/np.sqrt(2)
 
-def values_to_blocks(phases):
+def values_to_blocks(phases,known_block):
     print("values into blocks...",end="",flush=True)
     blocks = []
     for p in range(len(phases)//used_bins):
         block = phases[used_bins * p:used_bins*(1+p)]
-        b1 = [0]
-        b2 = other_bins_factor*np.exp(1j*(np.random.randint(0,4,B0 - 1)*np.pi/2 + np.pi/4))
-        b3 = block
-        b4 = other_bins_factor*np.exp(1j*(np.random.randint(0,4,block_length//2 - B0 - used_bins)*np.pi/2 + np.pi/4))
-        b5 = [0]
-        block = np.concatenate((b1,b2,b3,b4,b5))
-        #block = np.pad(block,(N0,block_length//2 + 1- N0 - used_bins))
-        # plt.scatter(list(range(len(block))),np.absolute(block))
-        # plt.show()
+        block = np.concatenate((np.ones(B0),block,np.ones(block_length//2 + 1 - B0 - used_bins)))
+        block *= known_block
         blocks.append(block)
     print("done")
     return blocks
@@ -97,53 +90,50 @@ def blocks_fft_to_signal(blocks_fft,known_block_signal):
     transmission = np.array([])
     for block in blocks_fft:
         block_signal = np.fft.irfft(block)
-        block_signal /= np.sqrt(np.mean(np.absolute(block_signal)**2))
+        #block_signal /= np.sqrt(np.mean(np.absolute(block_signal)**2))
         block_signal = np.concatenate((block_signal[-prefix_length:],block_signal))
         transmission = np.concatenate((transmission,block_signal))
-    # plt.plot(np.angle(block))
-    # plt.show()
     transmission = np.concatenate((known_block_signal,transmission))
     transmission = transmission / np.max(transmission)
-    # plt.plot(transmission)
-    # plt.show()
     chirp = ps.gen_chirp(B0,B0 + used_bins,fs,chirp_length,block_length)
     chirp = np.concatenate((chirp[-prefix_length:],chirp))
 
     chirp /= np.max(np.absolute(chirp))
-    transmission = np.concatenate((chirp,transmission))
+    transmission = np.concatenate((chirp,transmission,chirp))
     transmission /= np.max(np.absolute(transmission))
     print("done")
     
     return transmission
 
-def generate_known_block(seed_=1):
-    np.random.seed(seed_)
+def generate_known_block():
+    np.random.seed(1)
     graycode = np.random.randint(0,4,block_length//2 - 1)
-    #print(graycode)
-    # values = graycode * (np.pi/2) + np.pi/4
-    # for i in range(len(values)):
-    #     value = values[i]
-    #     if value > np.pi:
-    #         values[i] = -(2*np.pi - value)
-    # values = np.exp(1j*values)
-    values = []
-    for g in graycode:
-        output = -1 + -1j
-        value =f"{g:02b}"
-        if int(value[0]) == 0:
-            output += 2j
-        if int(value[1]) == 0:
-            output += 2
-        values.append(output)
-    #print(values)
-    values = np.concatenate(([0],values,[0]))/np.sqrt(2)
-    #v.plot_fft(values,fs)
+    values = graycode * (np.pi/2) + np.pi/4
+    for i in range(len(values)):
+        value = values[i]
+        if value > np.pi:
+            values[i] = -(2*np.pi - value)
+    values = np.exp(1j*values)
+
+    ##old coding method
+    # values = []
+    # for g in graycode:
+    #     output = -1 + -1j
+    #     value =f"{g:02b}"
+    #     if int(value[0]) == 0:
+    #         output += 2j
+    #     if int(value[1]) == 0:
+    #         output += 2
+    #     values.append(output)
+    #print(len(values))
+
+    values = np.concatenate(([0],values,[0]))
     known_block_signal = np.fft.irfft(values)
     known_block_signal = np.concatenate((known_block_signal[-prefix_length:],known_block_signal))
 
-    return known_block_signal/np.sqrt(np.mean(np.absolute(known_block_signal)**2))
+    return known_block_signal, values #/np.sqrt(np.mean(np.absolute(known_block_signal)**2))
 
-def load_file(filename = "moomoo.tif"):
+def load_file(filename):
     ### load file
     with open("./sendable_files/" + filename,"rb") as file:
         file_binary = file.read()
@@ -153,7 +143,7 @@ def load_file(filename = "moomoo.tif"):
 def add_header(binary,filename):
     ### prepare header
     filesize = len(binary)
-    head = filename + "/" + str(filesize)
+    head = filename + "\0" + str(filesize) + "\0"
     head = bytearray(head,"utf8")
     head_old = [f'{int(bin(byte)[2:]):08d}' for byte in head]
     head= []
@@ -161,7 +151,7 @@ def add_header(binary,filename):
         for bit in byte:
             head.append(int(bit))
     head = np.array(head)
-    binary = np.concatenate((np.zeros(8,dtype=int),head,np.zeros(8,dtype=int),binary))
+    binary = np.concatenate((head,binary))
     return binary
 
 def xor_binary(binary):
@@ -181,24 +171,31 @@ def handle_header(binary):
             byte_str += str(b)
         #byte_str = "0b" + byte_str
         bytes_list.append(int(byte_str,2))
-    indices = []
-    for i in range(len(bytes_list)):
-        if bytes_list[i] == 0:
-            indices.append(i)
-        if len(indices) == 2:
-            break
-    header = bytes_list[indices[0] + 1: indices[1]]
-    output = ""
-    for h in header:
-        output += chr(h)
-    #print(indices)
-    filename, size = output.split("/")
-    size = int(size)
-    data = bytes_list[indices[1] + 1:]
-    data = data[:size*8]
-    #print([chr(a) for a in data[:10]])
+    bytes_list = np.array(bytes_list,dtype='int8')
+    # indices = []
+    # for i in range(len(bytes_list)):
+    #     if bytes_list[i] == 0:
+    #         indices.append(i)
+    #     if len(indices) == 2:
+    #         break
+    # header = bytes_list[indices[0] + 1: indices[1]]
     
-    return filename, size, bytes(data)
+    inds = np.where(bytes_list == 0)[0]
+    filename_temp = bytes_list[:inds[0]]
+    filename = ""
+    for h in filename_temp:
+         filename += chr(h)
+
+    size = ""
+    size_temp = bytes_list[inds[0] + 1:inds[1]]
+    for s in size_temp:
+         size += chr(s)
+    size = int(size)
+
+    data = bytes_list[inds[1] +1:]
+    data = bytes(data[:size//8])
+    
+    return filename, size, data
 
     
 
@@ -207,17 +204,12 @@ if __name__ == "__main__":
     filename = 'moomoo.tif'
     binary = load_file(filename)
     binary = add_header(binary,filename)
-    binary = xor_binary(binary)
-
-
-
-    #binary = random_binary(used_bins_data*250*2)
     len_binary_data = len(binary)
     binary = correct_binary_length(binary)
     binary = encode_blocks(binary)
     values = binary_to_values(binary)
-    blocks_fft = values_to_blocks(values)
-    known_block_signal = generate_known_block()
+    known_block_signal, known_block_fft = generate_known_block()
+    blocks_fft = values_to_blocks(values,known_block_fft)
     signal = blocks_fft_to_signal(blocks_fft,known_block_signal)
 
 
@@ -235,7 +227,7 @@ if __name__ == "__main__":
     print(f'xor seed:         {2}')
     print(f'known block seed: {1}')
     print(f'across bins:      [1,2047] inclusive')
-    print(f'graycoding: zigzag-benson method')
+    #print(f'graycoding: zigzag-benson method')
     print()
     print(f"num blocks: {len(blocks_fft)} + 1 known block")
     print(f"time:       {str(len(signal)/fs)[:4]}s")
@@ -245,8 +237,8 @@ if __name__ == "__main__":
     print()
 
     if save == True:
-        #ps.save_signal(signal,fs,f'test_signals/cat.wav')
-        ps.save_signal(signal,fs,f'test_signals/test_signal_{c.standard}_{c.N}_{c.K}_{B0}_{B1}.wav')
+        ps.save_signal(signal,fs,f'test_signals/cat.wav')
+        #ps.save_signal(signal,fs,f'test_signals/test_signal_{c.standard}_{c.N}_{c.K}_{B0}_{B1}.wav')
     
     if play == True:
         ps.play_signal(signal ,fs)

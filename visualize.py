@@ -24,11 +24,14 @@ def plot_fft(fft,fs,colours='b',title=""):
     plt.show()
     
 
-def plot_constellation(fft,colours,title=""):
+def plot_constellation(fft,colours=None,title=""):
     l=np.max(np.absolute(fft))*1.2
     r = np.real(fft)
     i = np.imag(fft)
-    plt.scatter(r,i,s=1,c=colours,alpha=1)
+    if colours !=None:
+        plt.scatter(r,i,s=1,c=colours,alpha=1)
+    else:
+        plt.scatter(r,i,s=1,alpha=1)
     plt.axhline(0, color='gray')
     plt.axvline(0, color='gray')
     plt.axis('scaled')

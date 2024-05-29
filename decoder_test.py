@@ -106,10 +106,10 @@ def do_ldpc(data_fft,channel_inv,sigma2,pr=False):
 ### STANDARD ###
 fs = 48000
 block_length = 4096 
-prefix_length = 512 
-N0 = 100
+prefix_length = 1024 
+B0 = 85
 ###
-recording_time = 28
+recording_time = 17
 chirp_factor = 16
 c = ldpc.code('802.16','1/2',54)
 ldpc_factor = 1
@@ -117,15 +117,16 @@ ldpc_factor = 1
 used_bins = (c.N//2)*ldpc_factor
 chirp_length = block_length*chirp_factor
 used_bins_data = (c.K//2)*ldpc_factor
-N1 = N0+ used_bins
+B1 = B0+ used_bins
 ###
 record = False
 use_test_signal = True
+filename_="cat.wav"
 
 def run(p):
 
     ### sync function ###
-    sync_chirp = playsound.gen_chirp(N0,N0+used_bins,fs,chirp_length,block_length)
+    sync_chirp = playsound.gen_chirp(B0,B0+used_bins,fs,chirp_length,block_length)
     sync = np.concatenate((sync_chirp[-prefix_length:],sync_chirp))
 
 
@@ -136,15 +137,16 @@ def run(p):
         recording = sd.rec(fs * recording_time,samplerate = fs,channels=1)
         sd.wait()
         recording = recording.flatten()
-        playsound.save_signal(recording,fs,f'recordings/recording_{c.standard}_{c.N}_{c.K}_{N0}_{N1}.wav')
+        playsound.save_signal(recording,fs,f'recordings/'+ filename_)
     else:
         if (use_test_signal):
-            recording = playsound.load_signal(f'test_signals/test_signal_{c.standard}_{c.N}_{c.K}_{N0}_{N1}.wav')
+            recording = playsound.load_signal(f'test_signals/' + filename_)
         else:
-            recording = playsound.load_signal(f'recordings/recording_{c.standard}_{c.N}_{c.K}_{N0}_{N1}.wav')
+            recording = playsound.load_signal(f'recordings/' + filename_)
         recording = recording.flatten()
     print("done")
-
+    # plt.plot(recording)
+    # plt.show()
 
 
 
@@ -152,7 +154,7 @@ def run(p):
     print("synchronizing...",end="",flush=True)
     len_sync_chirp = len(sync_chirp)
     correlation = scipy.signal.correlate(recording[:fs*10], sync) # checks first 10s
-    position = np.argmax(correlation) +1# +1 moves slopes upwards CCW, seems to generally help?
+    position = np.argmax(correlation) +1 # +1 moves slopes upwards CCW, seems to generally help?
     print("done")
 
 
@@ -160,14 +162,14 @@ def run(p):
 
     ### estimate channel ###
     print("estimating channel...",end="",flush=True)
-    chirp = recording[position - len_sync_chirp :position]
+    chirp = recording[position - len_sync_chirp : position]
     fft_chirp = get_fft_chirp(chirp)
     fft_sync_chirp = get_fft_chirp(sync_chirp)
 
     channel = fft_chirp/fft_sync_chirp
-    channel = channel[N0:N0+used_bins]
+    channel = channel[B0:B0+used_bins]
     channel_inv = 1/channel
-    channel_i = np.concatenate((np.ones(N0),channel,np.ones(block_length//2 + 1 - N0 - used_bins)))
+    channel_i = np.concatenate((np.ones(B0),channel,np.ones(block_length//2 + 1 - B0 - used_bins)))
     impulse = np.fft.irfft(channel_i)
     print("done")
 
@@ -184,7 +186,10 @@ def run(p):
     group_length = prefix_length + block_length
     start = position + prefix_length
     end = position + group_length
-
+    known_block_t, known_block_fft = e.generate_known_block()
+    known_block_t = known_block_t[prefix_length:]
+    #visualize.plot_fft(known_block_fft,fs)
+    known_block_fft = known_block_fft[B0:B1]
     while True:
         print(f"\rblock: {block_index:04d}",end="")
         data = recording[start:end]
@@ -193,7 +198,7 @@ def run(p):
         #plt.plot(data)
         #plt.show()
         data_fft = np.fft.rfft(data)[:-1]
-        data_fft = data_fft[N0:N0+used_bins]
+        data_fft = data_fft[B0:B1]
         #print("\n",np.mean(np.absolute(data_fft)))
         data_fft *= channel_inv
         #print("\n",np.mean(np.absolute(data_fft)))
@@ -205,35 +210,42 @@ def run(p):
         
         if block_index == 0:
             power = np.sqrt(np.mean(np.absolute(data_fft))**2)
-            data_fft /=power*np.sqrt(2)/2
-            channel_inv /=power*np.sqrt(2)/2
+            data_fft /= power*np.sqrt(2)/2
+            channel_inv /= power*np.sqrt(2)/2
 
         if block_index == 0:  # known block
-            known_block_t = e.generate_known_block()[prefix_length:]
-            data_fft_ideal = np.fft.rfft(known_block_t)[N0:N0+used_bins]
-            power = np.sqrt(np.mean(np.absolute(data_fft_ideal))**2)
-            data_fft_ideal /= power*np.sqrt(2)/2
-
-
-            #print("\n",np.mean(np.absolute(data_fft_ideal)))#
             
-            # visualize.plot_fft(data_fft,fs)
+            #data_fft_ideal = np.fft.rfft(known_block_t)[B0:B0+used_bins]
+            power = np.sqrt(np.mean(np.absolute(known_block_fft))**2)
+            known_block_fft_norm = known_block_fft / (power*np.sqrt(2)/2)
+
+
+            print("\n",np.mean(np.absolute(known_block_fft)))#
+            
+            #visualize.plot_fft(data_fft,fs)
             
             #sign = np.sign(np.real(np.mean(channel_inv))*np.imag(np.mean(channel_inv)))  # no idea why this has to be negative....
             
-            complex_noise = data_fft_ideal - data_fft 
+            complex_noise = known_block_fft_norm - data_fft 
             sigma2 =  np.mean(np.absolute(complex_noise)**2)  # 0.5 represents 1/Amplitude**2 amp is sqrt2
-            channel_inv *= (data_fft_ideal/data_fft)**(1/2)
+            print(" sigma:",sigma2)
+            channel_inv *= (known_block_fft_norm/data_fft)**(1/2)
+            #visualize.plot_constellation(data_fft)
+            #visualize.plot_constellation(known_block_fft_norm)
             #data_fft *= (data_fft_ideal/data_fft)
-            #print("\n",np.mean(np.absolute(data_fft)))
+            print("\n",np.mean(np.absolute(data_fft)))
 
 
         ## do first ldpc
         #print(sigma2)
         if block_index != 0:
+            #visualize.plot_constellation(data_fft)
+            data_fft /= (known_block_fft)#/np.exp(1j*np.pi/2))
+            #visualize.plot_constellation(data_fft)
             data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2)
 
-            if it >199 and block_index > 5:  ##first can have too many errors, might be worth sending a warmup known block or a longer chirp?
+            if it >199 and block_index > 100:  ##first can have too many errors, might be worth sending a warmup known block or a longer chirp?
+                print(block_index)
                 print("too many errors")
                 break
             
@@ -243,9 +255,9 @@ def run(p):
             ## do linear shift
             inds = np.where(data_fft_ideal == 1 + 1j)[0]
             pilots = np.angle(data_fft[inds]) - np.pi/4
-            freqs = inds + N0
+            freqs = inds + B0
             coefs_new = np.polyfit(freqs,pilots,order - 1)
-            angles = apply_poly_to_fft(data_fft,coefs_new,N0)
+            angles = apply_poly_to_fft(data_fft,coefs_new,B0)
 
             channel_inv *= angles
             data_fft *= angles
@@ -253,7 +265,7 @@ def run(p):
             
             complex_noise = data_fft_ideal - data_fft 
             sigma2 = sigma2 + np.mean(np.absolute(complex_noise)**2) # this also doesn't seem to make a difference
-            sigma2 = sigma2/2
+            sigma2 = sigma2/2 # smooth sigma
             data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2,pr=True)
 
 
@@ -266,6 +278,7 @@ def run(p):
         block_index += 1
     num_blocks = block_index
     print("\ndone")
+    blocks_ideal = blocks_ideal
 
 
 
@@ -278,7 +291,6 @@ def run(p):
     filename = 'moomoo.tif'
     t_bits = e.load_file(filename)
     t_bits = e.add_header(t_bits,filename)
-    t_bits = e.xor_binary(t_bits)
     t_bits = e.correct_binary_length(t_bits)
     t_bits = e.encode_blocks(t_bits)
 
@@ -302,10 +314,10 @@ def run(p):
 
     ### compare signals ###
     t_bits = decode(t_bits)
-    t_bits = e.xor_binary(t_bits)
-
+    print(len(t_bits))
+    
     r_bits = decode(r_bits)
-    r_bits = e.xor_binary(r_bits)
+    print(len(r_bits))
 
     
     total_errors = 0
@@ -325,15 +337,17 @@ def run(p):
 
     total_errors = total_errors/num_blocks
     print(f"TOTAL ERRORS: {total_errors:.4%}")
+    
 
     filename, size, data = e.handle_header(r_bits)
+    print(filename,size,data[:8])
     with open("./received_files/" + filename,"wb") as output_file:
         output_file.write(data)
 
     # # ### view plots ###
     # #visualize.big_plot([blocks[0],blocks[500],blocks[999]],fs,title="test",colours=np.concatenate((colours[0:used_bins],colours[500*used_bins:501*used_bins],colours[999*used_bins:1000*used_bins])))
     # #visualize.big_plot(blocks[:10],fs,title="test",colours=(colours[0:used_bins*10]))
-    visualize.big_plot(blocks[:8],fs,title="test",colours=colours)
+    visualize.big_plot(blocks[:5],fs,title="test",colours=colours[:5*used_bins])
     visualize.plot_constellation(np.array(blocks).flatten(),colours=colours)
 
     plt.plot(correlation)
