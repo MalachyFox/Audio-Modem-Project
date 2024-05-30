@@ -120,8 +120,8 @@ chirp_length = block_length*chirp_factor
 used_bins_data = (c.K//2)*ldpc_factor
 B1 = B0+ used_bins
 ###
-record = False
-use_test_signal = True
+record = True
+use_test_signal = False
 filename_="cat3.wav"
 
 
@@ -346,8 +346,8 @@ def run(p):
     # #visualize.big_plot([blocks[0],blocks[500],blocks[999]],fs,title="test",colours=np.concatenate((colours[0:used_bins],colours[500*used_bins:501*used_bins],colours[999*used_bins:1000*used_bins])))
     # #visualize.big_plot(blocks[:10],fs,title="test",colours=(colours[0:used_bins*10]))
     
-    # plt.plot(correlation)
-    # plt.show()
+    plt.plot(correlation)
+    plt.show()
 
     # visualize.plot_channel(impulse)
 

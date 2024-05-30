@@ -27,7 +27,7 @@ chirp_length = block_length * chirp_factor
 used_bins_data = ( c.K // 2 ) * ldpc_factor
 B1 = B0 + used_bins
 ###
-play = False
+play = True
 save = True
 
 
