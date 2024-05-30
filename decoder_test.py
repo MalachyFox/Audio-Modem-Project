@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import decoder as d
 import encoder as e
 from py import ldpc
-import librosa
+#import librosa
 
 def get_fft_chirp(chirp,overlap = False):
     fft_chirp = np.zeros(block_length,dtype=np.complex_)
@@ -110,7 +110,7 @@ block_length = 4096
 prefix_length = 1024 
 B0 = 85
 ###
-recording_time = 22
+recording_time = 30
 chirp_factor = 16
 c = ldpc.code('802.16','1/2',54)
 ldpc_factor = 1
@@ -120,9 +120,9 @@ chirp_length = block_length*chirp_factor
 used_bins_data = (c.K//2)*ldpc_factor
 B1 = B0+ used_bins
 ###
-record = False
-use_test_signal = True
-filename_="cat.wav"
+record = True
+use_test_signal = False
+filename_="cat2.wav"
 
 
 def run(p):
@@ -216,7 +216,7 @@ def run(p):
 
             complex_noise = known_block_fft_norm - data_fft 
             sigma2 =  np.mean(np.absolute(complex_noise)**2)  # 0.5 represents 1/Amplitude**2 amp is sqrt2
-            channel_inv_adj = (known_block_fft_norm/data_fft)**(1/4)
+            channel_inv_adj = (known_block_fft_norm/data_fft)**(1)
             channel_inv *=channel_inv_adj
 
         ## do first ldpc
