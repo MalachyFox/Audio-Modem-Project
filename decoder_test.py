@@ -27,7 +27,7 @@ def get_fft_chirp(chirp,overlap = False):
 
 def apply_poly_to_fft(data_fft,coefs,N0):
     data_fft_ = data_fft
-    freqs = np.linspace(N0,N0 + used_bins,used_bins)
+    freqs = np.linspace(N0,N0 + used_bins,used_bins,endpoint = False)
     angles = np.exp(-1j*(coefs[0]*freqs+coefs[1]))
     # for k in range(len(data_fft)):
     #     f = N0 + k
@@ -40,10 +40,9 @@ def apply_poly_to_fft(data_fft,coefs,N0):
     return angles
 
 def llhr(fft,channel_inv,sigma2_):
-
     yl = []
     for k in range(len(fft)):
-        co =  np.sqrt(2) * np.real((1/channel_inv[k])*(np.conj(1/channel_inv[k]))/(sigma2_))
+        co =  16*np.real((1/channel_inv[k])*(np.conj(1/channel_inv[k]))/(sigma2_))
         #print(co)
         l1 = np.sqrt(2)*np.imag(fft[k])*co
         l2 = np.sqrt(2)*np.real(fft[k])*co
@@ -99,7 +98,7 @@ def do_ldpc(data_fft,channel_inv,sigma2,pr=False):
         if it > 199 and pr == True:
             print(" ! max it")
     app.extend(app_temp)
-    binary = [ 1 if bitl > 0 else 0 for bitl in app]
+    binary = [ 1 if bitl > 0 else 0 for bitl in app]  #??????
     data_fft_ideal = binary_to_values(binary)
 
     return data_fft_ideal, it
@@ -120,9 +119,9 @@ chirp_length = block_length*chirp_factor
 used_bins_data = (c.K//2)*ldpc_factor
 B1 = B0+ used_bins
 ###
-record = True
+record = False
 use_test_signal = False
-filename_="cat3.wav"
+filename_="cat_standard.wav"
 
 
 def run(p):
@@ -147,6 +146,8 @@ def run(p):
             recording = playsound.load_signal(f'recordings/' + filename_)
         recording = recording.flatten()
     print("done")
+    # plt.plot(recording)
+    # plt.show()
 
     # recording = librosa.resample(recording,orig_sr=48000,target_sr = fs)
     # recording += np.random.normal(0,0.04,len(recording))
@@ -176,7 +177,7 @@ def run(p):
     impulse = np.fft.irfft(channel_i)
     print("done")
 
-
+    
 
 
     ### reverse channel effects ###
@@ -192,6 +193,8 @@ def run(p):
     known_block_t, known_block_fft = e.generate_known_block()
     known_block_t = known_block_t[prefix_length:]
     known_block_fft = known_block_fft[B0:B1]
+    angles = np.ones(used_bins)
+    its = np.array([])
     while True:
         print(f"\rblock: {block_index:04d}",end="")
         data = recording[start:end]
@@ -199,6 +202,7 @@ def run(p):
             break
         data_fft = np.fft.rfft(data)
         data_fft = data_fft[B0:B1]
+        data_fft_raw = data_fft
         data_fft *= channel_inv
 
 
@@ -208,44 +212,62 @@ def run(p):
         
         if block_index == 0:
             power = np.sqrt(np.mean(np.absolute(data_fft))**2)
+
             data_fft /= power*(np.sqrt(2)/2)
             channel_inv /= power*(np.sqrt(2)/2)
 
-            power = np.sqrt(np.mean(np.absolute(known_block_fft))**2)
-            known_block_fft_norm = known_block_fft / (power*np.sqrt(2)/2)
+        
+            complex_noise =  data_fft/channel_inv - known_block_fft/channel_inv
+            sigma2 =  np.mean(np.absolute(complex_noise)**2) # 0.5 represents 1/Amplitude**2 amp is sqrt2
 
-            complex_noise = known_block_fft_norm - data_fft 
-            sigma2 =  np.mean(np.absolute(complex_noise)**2)  # 0.5 represents 1/Amplitude**2 amp is sqrt2
-            channel_inv_adj = (known_block_fft_norm/data_fft)**(1)
+            channel_inv_adj = (known_block_fft/data_fft)**(1/2)
             channel_inv *=channel_inv_adj
-
+            
+        #print(sigma2)
         ## do first ldpc
         if block_index != 0:
+            
+
+            # power = np.sqrt(np.mean(np.absolute(data_fft))**2)
+            # data_fft /= power*(np.sqrt(2)/2)
+            # channel_inv /= power*(np.sqrt(2)/2)
+
             data_fft /= (known_block_fft/np.exp(1j*np.pi/4))
+
+            
+
             data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2)
 
-            if it >199 and block_index > 41:  ##first can have too many errors, might be worth sending a warmup known block or a longer chirp?
+            if it >199 and block_index > 999:  ##first can have too many errors, might be worth sending a warmup known block or a longer chirp?
                 print("\ndone?")
                 break
             
-            channel_inv *= (data_fft_ideal/data_fft)**(1/2)# **(2/3) #**(1/(1+a-(a/(b*block_index+1)))) # crazy function gives more weight at the start and less towards thte end, tapering to a constant 1/a with speed b a = 4, b = 0.05
             
 
-            ## do linear shift
+        ## do linear shift
+            
+
             inds = np.where(data_fft_ideal == 1 + 1j)[0]
             pilots = np.angle(data_fft[inds]) - np.pi/4
             freqs = inds + B0
             coefs_new = np.polyfit(freqs,pilots,order - 1)
             angles = apply_poly_to_fft(data_fft,coefs_new,B0)
-
+            
+            complex_noise = known_block_fft/channel_inv - data_fft/channel_inv
+            complex_noise_average = np.mean(np.absolute(complex_noise)**2)
+            sigma2 = sigma2 + complex_noise_average
+            sigma2 /=2
+            
+            data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2,pr=True)
             channel_inv *= angles
             data_fft *= angles
+            its = np.append(its,it)
+            # **(2/3) #**(1/(1+a-(a/(b*block_index+1)))) # crazy function gives more weight at the start and less towards thte end, tapering to a constant 1/a with speed b a = 4, b = 0.05
             
-            complex_noise = data_fft_ideal - data_fft 
-            sigma2 = sigma2 + np.mean(np.absolute(complex_noise)**2) # this also doesn't seem to make a difference
-            sigma2 = sigma2/2 # smooth sigma
-            data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2,pr=True)
-
+            channel_inv *= (data_fft_ideal/data_fft)**(1/8) # soft update / clustering
+            if np.sum(its[-5:]) > 999:
+                break
+            
 
         ## clean up
             blocks_ideal.append(data_fft_ideal)
@@ -295,7 +317,7 @@ def run(p):
     
     total_errors = 0
     error_list = []
-    for b in range(num_blocks):
+    for b in range(num_blocks - 6):
         r = r_bits[b*used_bins_data*2:(b+1)*used_bins_data*2]
         t = t_bits[b*used_bins_data*2:(b+1)*used_bins_data*2]
         count = sum(1 for a,b in zip(r,t) if a != b)
@@ -336,7 +358,7 @@ def run(p):
             output_file.write(data)
     except:
         pass
-    see = [0,20,40]
+    see = [0,1,2]
     
     plt.style.use('ggplot')
     visualize.big_plot([blocks[i] for i in see],fs,title="test",colours=np.array([colours[i*used_bins:(i+1)*used_bins] for i in see]).flatten())

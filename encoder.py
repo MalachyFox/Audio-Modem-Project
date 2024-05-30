@@ -27,7 +27,7 @@ chirp_length = block_length * chirp_factor
 used_bins_data = ( c.K // 2 ) * ldpc_factor
 B1 = B0 + used_bins
 ###
-play = True
+play = False
 save = True
 
 
@@ -225,7 +225,7 @@ if __name__ == "__main__":
     print()
 
     if save == True:
-        ps.save_signal(signal,fs,f'test_signals/cat3.wav')
+        ps.save_signal(signal,fs,f'test_signals/cat_standard.wav')
         #ps.save_signal(signal,fs,f'test_signals/test_signal_{c.standard}_{c.N}_{c.K}_{B0}_{B1}.wav')
     
     if play == True:
