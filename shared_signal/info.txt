@@ -1,0 +1,14 @@
+fs:         48000Hz
+B0:         85
+B1:         733
+block len:  4096
+prefix len: 1024
+chirp len:  16 x 4096
+chirp frqs: 761.71875Hz -> 8824.21875Hz
+LDPC:       802.16, 0.5, 54
+
+num blocks: 208 + 1 known block
+time:       25.0s
+size:       16.7KB
+efficiency: 0.11
+byte-rate:  0.66kB/s
