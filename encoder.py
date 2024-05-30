@@ -161,31 +161,44 @@ def handle_header(binary):
         byte_str = ""
         for b in byte:
             byte_str += str(b)
-        #byte_str = "0b" + byte_str
-        bytes_list.append(int(byte_str,2))
-    bytes_list = np.array(bytes_list,dtype='int8')
-    # indices = []
-    # for i in range(len(bytes_list)):
-    #     if bytes_list[i] == 0:
-    #         indices.append(i)
-    #     if len(indices) == 2:
-    #         break
-    # header = bytes_list[indices[0] + 1: indices[1]]
-    
+        byte_str = "0b" + byte_str
+        bytes_list.append(int(byte_str,0))
+    bytes_list = np.array(bytes_list,dtype=np.int8)
+
+
+    # print(bytes_list[:20])
+    # inds = np.where(bytes_list == 0)[0]
+    # filename_temp = bytes_list[inds[1] + 1:inds[2]]
+    # filename = ""
+    # for h in filename_temp:
+    #      filename += chr(h)
+
+    # size = ""
+    # size_temp = bytes_list[inds[3] + 1:inds[4]]
+    # for s in size_temp:
+    #      size += chr(s)
+    # size = int(size)
+
+    # data = bytes_list[inds[5] +1:]
+    # data = bytes(data[:size//8])
+
+    print(bytes_list[:20])
     inds = np.where(bytes_list == 0)[0]
-    filename_temp = bytes_list[inds[1] + 1:inds[2]]
+    filename_temp = bytes_list[inds[0] + 1:inds[1]]
     filename = ""
     for h in filename_temp:
          filename += chr(h)
 
     size = ""
-    size_temp = bytes_list[inds[3] + 1:inds[4]]
+    size_temp = bytes_list[inds[1] + 1:inds[2]]
     for s in size_temp:
          size += chr(s)
     size = int(size)
 
-    data = bytes_list[inds[5] +1:]
+    data = bytes_list[inds[3] +1:]
     data = bytes(data[:size//8])
+
+
     
     return filename, size, data
 

@@ -39,10 +39,10 @@ def apply_poly_to_fft(data_fft,coefs,N0):
     #     data_fft[k] = data_fft[k] * angle
     return angles
 
-def llhr(fft,channel_inv,sigma2_):
+def llhr(fft,channel_inv,sigma2_,power):
     yl = []
     for k in range(len(fft)):
-        co =  np.real((1/channel_inv[k])*(np.conj(1/channel_inv[k]))/(sigma2_))
+        co =  power*np.sqrt(2)*np.real((1/channel_inv[k])*(np.conj(1/channel_inv[k]))/(sigma2_))
         #print(co)
         l1 = np.sqrt(2)*np.imag(fft[k])*co
         l2 = np.sqrt(2)*np.real(fft[k])*co
@@ -89,9 +89,9 @@ def decode(binary):
         output.extend(chunk)
     return np.array(output)
 
-def do_ldpc(data_fft,channel_inv,sigma2,pr=False):
+def do_ldpc(data_fft,channel_inv,sigma2,power,pr=False):
 
-    yl = llhr(data_fft,channel_inv,sigma2)
+    yl = llhr(data_fft,channel_inv,sigma2,power)
     app = []
     for i in range(ldpc_factor):
         app_temp, it = c.decode(yl[i*c.N:(i+1)*c.N],'sumprod2')
@@ -121,7 +121,7 @@ B1 = B0+ used_bins
 ###
 record = False
 use_test_signal = False
-filename_="mal_recorded_cat.wav"
+filename_="recording_51.wav"
 
 
 def run(p):
@@ -146,13 +146,12 @@ def run(p):
             recording = playsound.load_signal(f'recordings/' + filename_)
         recording = recording.flatten()
     print("done")
+
     # plt.plot(recording)
     # plt.show()
 
     # recording = librosa.resample(recording,orig_sr=48000,target_sr = fs)
     # recording += np.random.normal(0,0.04,len(recording))
-
-
 
     ### find position ###
     print("synchronizing...",end="",flush=True)
@@ -163,7 +162,6 @@ def run(p):
 
 
 
-
     ### estimate channel ###
     print("estimating channel...",end="",flush=True)
     chirp = recording[position - len_sync_chirp -prefix_length : position-prefix_length]
@@ -171,39 +169,43 @@ def run(p):
     fft_sync_chirp = get_fft_chirp(sync_chirp)
 
     fft_chirp = fft_chirp[B0:B1]
-    fft_sync_chirp = fft_sync_chirp[B0:B1]
-
     fft_chirp_norm = fft_chirp / np.sqrt(np.mean(np.absolute(fft_chirp)**2))
+
+    fft_sync_chirp = fft_sync_chirp[B0:B1]
     fft_sync_chirp_norm = fft_sync_chirp/ np.sqrt(np.mean(np.absolute(fft_sync_chirp)**2))
 
     channel = fft_chirp_norm/fft_sync_chirp_norm
-    #channel = channel[B0:B0+used_bins]
+
     channel_inv = 1/channel
 
     channel_i = np.concatenate((np.ones(B0),channel,np.ones(block_length//2 + 1 - B0 - used_bins)))
     impulse = np.fft.irfft(channel_i)
     print("done")
 
-    
-
 
     ### reverse channel effects ###
     print("channel correction...",end="\n",flush=True)
-    blocks = []
-    blocks_ideal= []
+    
     order = 2
     sigma2 = 1
-    block_index = 0
+    
     group_length = prefix_length + block_length
     start = position + prefix_length
     end = position + group_length
+
     known_block_t, known_block_fft = e.generate_known_block()
     known_block_t = known_block_t[prefix_length:]
     known_block_fft = known_block_fft[B0:B1]
     known_block_fft_norm = known_block_fft/ np.sqrt(np.mean(np.absolute(known_block_fft))**2)
+
+    blocks = []
+    blocks_ideal = []
+    block_index = 0
     angles = np.ones(used_bins)
     its = np.array([])
     power = 0
+    fail_after = 5
+
     while True:
         print(f"\rblock: {block_index:04d}",end="")
         data = recording[start:end]
@@ -218,7 +220,7 @@ def run(p):
         
         if block_index == 0:
             power = np.sqrt(np.mean(np.absolute(data_fft))**2)
-            print("\rPOWER:",power)
+            print("\rpower:",power)
 
             recording /= power *(1/2)
             data_fft /= power *(np.sqrt(2)/2)
@@ -227,11 +229,10 @@ def run(p):
         
             complex_noise =  data_fft/channel_inv - known_block_fft/channel_inv
             sigma2 =  np.mean(np.absolute(complex_noise)**2) # 0.5 represents 1/Amplitude**2 amp is sqrt2
-            sigma2 /= power
             channel_inv_adj = (known_block_fft/data_fft)**(1/2)
             channel_inv *=channel_inv_adj
             
-        #print(sigma2)
+        #print("\r",sigma2)
         ## do first ldpc
         if block_index != 0:
             
@@ -244,7 +245,7 @@ def run(p):
 
             
 
-            data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2)
+            data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2,power)
             
             
 
@@ -259,17 +260,17 @@ def run(p):
             
             complex_noise = known_block_fft/channel_inv - data_fft/channel_inv
             complex_noise_average = np.mean(np.absolute(complex_noise)**2)
+            #print(complex_noise_average)
             sigma2 = sigma2 + complex_noise_average
             sigma2 /=2
-            sigma2 /=power
             
-            data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2,pr=True)
+            data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2,power,pr=True)
             channel_inv *= angles
             data_fft *= angles
             its = np.append(its,it)
             channel_inv *= (data_fft_ideal/data_fft)**(1/8) # soft update / clustering
 
-            if np.sum(its[-5:]) > 999:
+            if np.sum(its[-fail_after:]) > 999:
                 break
             
 
@@ -280,25 +281,27 @@ def run(p):
         start += group_length
         end += group_length
         block_index += 1
-    num_blocks = block_index
+    num_blocks = block_index - fail_after
+    blocks = blocks[:-fail_after + 1]
+    blocks_ideal = blocks_ideal[:-fail_after + 1]
     print("\ndone")
-    print("ITS:",np.sum(its))
+    print("iterations:",int(np.sum(its)))
 
 
     ### decode signal ###
     print("decoding...",end="",flush=True)
     r_bits = blocks_to_binary(blocks_ideal)
-    filename = 'moomoo.tif'
-    t_bits = e.load_file(filename)
-    t_bits = e.add_header(t_bits,filename)
-    t_bits = e.correct_binary_length(t_bits)
-    t_bits = e.encode_blocks(t_bits)
+    # filename = 'moomoo.tif'
+    # t_bits = e.load_file(filename)
+    # t_bits = e.add_header(t_bits,filename)
+    # t_bits = e.correct_binary_length(t_bits)
+    # t_bits = e.encode_blocks(t_bits)
     print("done")
 
     ### add colours ###    
     colours = []
     for i in range(len(r_bits)//2):
-        bit = list(t_bits[i*2:(i+1)*2])  # r_bits for guessed colours, t_bits for known colours
+        bit = list(r_bits[i*2:(i+1)*2])  # r_bits for guessed colours, t_bits for known colours
         if (bit == [0,0]):
             colours.append("r")
         elif (bit == [0,1]):
@@ -309,26 +312,26 @@ def run(p):
             colours.append("b")
 
     # # ### compare signals ###
-    t_bits = decode(t_bits)
+    #t_bits = decode(t_bits)
     r_bits = decode(r_bits)
     
-    total_errors = 0
-    error_list = []
-    for b in range(num_blocks - 6):
-        r = r_bits[b*used_bins_data*2:(b+1)*used_bins_data*2]
-        t = t_bits[b*used_bins_data*2:(b+1)*used_bins_data*2]
-        count = sum(1 for a,b in zip(r,t) if a != b)
-        errors = count / (used_bins_data*2)
-        error_list.append(errors)
-        total_errors += errors
-        if count !=0:
-            print(f"block {b:04d} {count:02d} errors")
-        # view = 20
-        # print(" rec:",r[:view],"...",r[-view:])
-        # print("sent:",t[:view],"...",t[-view:],"\n")
+    # total_errors = 0
+    # error_list = []
+    # for b in range(num_blocks - 1):
+    #     r = r_bits[b*used_bins_data*2:(b+1)*used_bins_data*2]
+    #     t = t_bits[b*used_bins_data*2:(b+1)*used_bins_data*2]
+    #     count = sum(1 for a,b in zip(r,t) if a != b)
+    #     errors = count / (used_bins_data*2)
+    #     error_list.append(errors)
+    #     total_errors += errors
+    #     if count !=0:
+    #         print(f"block {b:04d} {count:02d} errors")
+    #     # view = 20
+    #     # print(" rec:",r[:view],"...",r[-view:])
+    #     # print("sent:",t[:view],"...",t[-view:],"\n")
 
-    total_errors = total_errors/num_blocks
-    print(f"TOTAL ERRORS: {total_errors:.4%}")
+    # total_errors = total_errors/num_blocks
+    # print(f"TOTAL ERRORS: {total_errors:.4%}")
 
 
     # ### HAORAN SECTION ###
@@ -347,15 +350,16 @@ def run(p):
     # im = Image.frombuffer('RGB', (54,54), np.array(bytes_list,dtype='int8'), 'raw', 'RGB', 0, 1)
     # im.save("haroan.png")
                 
+    
+    filename, size, data = e.handle_header(r_bits)
+    print(filename,size,data[:20])
     try:
-        filename, size, data = e.handle_header(r_bits)
-        print(filename,size,data[:8])
         with open("./received_files/" + filename,"wb") as output_file:
             output_file.write(data)
     except:
-        pass
+        print("FAILED TO SAVE")
 
-    see = [int(a) for a in np.linspace(0,num_blocks-7,5)]
+    see = [int(a) for a in np.linspace(0,num_blocks - 1,5)]
     
     plt.style.use('ggplot')
     visualize.big_plot([blocks[i] for i in see],fs,title="test",colours=np.array([colours[i*used_bins:(i+1)*used_bins] for i in see]).flatten())
@@ -364,11 +368,11 @@ def run(p):
     plt.plot(correlation)
     plt.show()
 
-    # visualize.plot_channel(impulse)
+    visualize.plot_channel(impulse)
 
-    # plt.plot(error_list)
-    # plt.ylim(0,20)
-    # plt.show()
+    plt.plot(error_list)
+    plt.ylim(0,20)
+    plt.show()
 
     plt.plot(recording)
     plt.show()

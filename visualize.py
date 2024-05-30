@@ -5,8 +5,6 @@ import matplotlib.pyplot as plt
 import datetime
 from matplotlib import rc
 
-from basic_units import degrees, radians
-
 def plot_channel(channel):
     #plt.stem(range(len(channel)),channel)
     plt.plot(channel)
