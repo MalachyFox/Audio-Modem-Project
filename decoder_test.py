@@ -42,7 +42,7 @@ def apply_poly_to_fft(data_fft,coefs,N0):
 def llhr(fft,channel_inv,sigma2_):
     yl = []
     for k in range(len(fft)):
-        co =  16*np.real((1/channel_inv[k])*(np.conj(1/channel_inv[k]))/(sigma2_))
+        co =  np.real((1/channel_inv[k])*(np.conj(1/channel_inv[k]))/(sigma2_))
         #print(co)
         l1 = np.sqrt(2)*np.imag(fft[k])*co
         l2 = np.sqrt(2)*np.real(fft[k])*co
@@ -121,7 +121,7 @@ B1 = B0+ used_bins
 ###
 record = False
 use_test_signal = False
-filename_="cat_standard.wav"
+filename_="mal_recorded_cat.wav"
 
 
 def run(p):
@@ -170,9 +170,16 @@ def run(p):
     fft_chirp = get_fft_chirp(chirp)
     fft_sync_chirp = get_fft_chirp(sync_chirp)
 
-    channel = fft_chirp/fft_sync_chirp
-    channel = channel[B0:B0+used_bins]
+    fft_chirp = fft_chirp[B0:B1]
+    fft_sync_chirp = fft_sync_chirp[B0:B1]
+
+    fft_chirp_norm = fft_chirp / np.sqrt(np.mean(np.absolute(fft_chirp)**2))
+    fft_sync_chirp_norm = fft_sync_chirp/ np.sqrt(np.mean(np.absolute(fft_sync_chirp)**2))
+
+    channel = fft_chirp_norm/fft_sync_chirp_norm
+    #channel = channel[B0:B0+used_bins]
     channel_inv = 1/channel
+
     channel_i = np.concatenate((np.ones(B0),channel,np.ones(block_length//2 + 1 - B0 - used_bins)))
     impulse = np.fft.irfft(channel_i)
     print("done")
@@ -193,8 +200,10 @@ def run(p):
     known_block_t, known_block_fft = e.generate_known_block()
     known_block_t = known_block_t[prefix_length:]
     known_block_fft = known_block_fft[B0:B1]
+    known_block_fft_norm = known_block_fft/ np.sqrt(np.mean(np.absolute(known_block_fft))**2)
     angles = np.ones(used_bins)
     its = np.array([])
+    power = 0
     while True:
         print(f"\rblock: {block_index:04d}",end="")
         data = recording[start:end]
@@ -202,24 +211,23 @@ def run(p):
             break
         data_fft = np.fft.rfft(data)
         data_fft = data_fft[B0:B1]
-        data_fft_raw = data_fft
         data_fft *= channel_inv
-
-
 
 
         ## normalise first block and find sigma.
         
         if block_index == 0:
             power = np.sqrt(np.mean(np.absolute(data_fft))**2)
+            print("\rPOWER:",power)
 
-            data_fft /= power*(np.sqrt(2)/2)
-            channel_inv /= power*(np.sqrt(2)/2)
+            recording /= power *(1/2)
+            data_fft /= power *(np.sqrt(2)/2)
+            #channel_inv /= power*(np.sqrt(2)/2)
 
         
             complex_noise =  data_fft/channel_inv - known_block_fft/channel_inv
             sigma2 =  np.mean(np.absolute(complex_noise)**2) # 0.5 represents 1/Amplitude**2 amp is sqrt2
-
+            sigma2 /= power
             channel_inv_adj = (known_block_fft/data_fft)**(1/2)
             channel_inv *=channel_inv_adj
             
@@ -232,15 +240,11 @@ def run(p):
             # data_fft /= power*(np.sqrt(2)/2)
             # channel_inv /= power*(np.sqrt(2)/2)
 
-            data_fft /= (known_block_fft/np.exp(1j*np.pi/4))
+            data_fft /= (known_block_fft_norm/np.exp(1j*np.pi/4))
 
             
 
             data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2)
-
-            if it >199 and block_index > 999:  ##first can have too many errors, might be worth sending a warmup known block or a longer chirp?
-                print("\ndone?")
-                break
             
             
 
@@ -257,14 +261,14 @@ def run(p):
             complex_noise_average = np.mean(np.absolute(complex_noise)**2)
             sigma2 = sigma2 + complex_noise_average
             sigma2 /=2
+            sigma2 /=power
             
             data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2,pr=True)
             channel_inv *= angles
             data_fft *= angles
             its = np.append(its,it)
-            # **(2/3) #**(1/(1+a-(a/(b*block_index+1)))) # crazy function gives more weight at the start and less towards thte end, tapering to a constant 1/a with speed b a = 4, b = 0.05
-            
             channel_inv *= (data_fft_ideal/data_fft)**(1/8) # soft update / clustering
+
             if np.sum(its[-5:]) > 999:
                 break
             
@@ -278,21 +282,18 @@ def run(p):
         block_index += 1
     num_blocks = block_index
     print("\ndone")
-
+    print("ITS:",np.sum(its))
 
 
     ### decode signal ###
     print("decoding...",end="",flush=True)
     r_bits = blocks_to_binary(blocks_ideal)
-
     filename = 'moomoo.tif'
     t_bits = e.load_file(filename)
     t_bits = e.add_header(t_bits,filename)
     t_bits = e.correct_binary_length(t_bits)
     t_bits = e.encode_blocks(t_bits)
-
     print("done")
-
 
     ### add colours ###    
     colours = []
@@ -307,12 +308,8 @@ def run(p):
         elif (bit == [1,0]):
             colours.append("b")
 
-
-
     # # ### compare signals ###
     t_bits = decode(t_bits)
-    # print(len(t_bits))
-    
     r_bits = decode(r_bits)
     
     total_errors = 0
@@ -349,7 +346,6 @@ def run(p):
     # from PIL import Image
     # im = Image.frombuffer('RGB', (54,54), np.array(bytes_list,dtype='int8'), 'raw', 'RGB', 0, 1)
     # im.save("haroan.png")
-
                 
     try:
         filename, size, data = e.handle_header(r_bits)
@@ -358,15 +354,12 @@ def run(p):
             output_file.write(data)
     except:
         pass
-    see = [0,1,2]
+
+    see = [int(a) for a in np.linspace(0,num_blocks-7,5)]
     
     plt.style.use('ggplot')
     visualize.big_plot([blocks[i] for i in see],fs,title="test",colours=np.array([colours[i*used_bins:(i+1)*used_bins] for i in see]).flatten())
     visualize.plot_constellation(np.array(blocks).flatten(),colours=colours)
-    
-    # # ### view plots ###
-    # #visualize.big_plot([blocks[0],blocks[500],blocks[999]],fs,title="test",colours=np.concatenate((colours[0:used_bins],colours[500*used_bins:501*used_bins],colours[999*used_bins:1000*used_bins])))
-    # #visualize.big_plot(blocks[:10],fs,title="test",colours=(colours[0:used_bins*10]))
     
     plt.plot(correlation)
     plt.show()
