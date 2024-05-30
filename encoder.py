@@ -142,7 +142,7 @@ def load_file(filename):
 def add_header(binary,filename):
     ### prepare header
     filesize = len(binary)
-    head = "\0" + filename + "\0" + str(filesize) + "\0"
+    head = "\0\0" + filename + "\0\0" + str(filesize) + "\0\0"
     head = bytearray(head,"utf8")
     head_old = [f'{int(bin(byte)[2:]):08d}' for byte in head]
     head= []
@@ -151,13 +151,6 @@ def add_header(binary,filename):
             head.append(int(bit))
     head = np.array(head)
     binary = np.concatenate((head,binary))
-    return binary
-
-def xor_binary(binary):
-
-    np.random.seed(2)
-    binary = (binary + np.random.randint(0,2,len(binary))) %2
-
     return binary
 
 def handle_header(binary):
@@ -180,18 +173,18 @@ def handle_header(binary):
     # header = bytes_list[indices[0] + 1: indices[1]]
     
     inds = np.where(bytes_list == 0)[0]
-    filename_temp = bytes_list[inds[0]:inds[1]]
+    filename_temp = bytes_list[inds[1] + 1:inds[2]]
     filename = ""
     for h in filename_temp:
          filename += chr(h)
 
     size = ""
-    size_temp = bytes_list[inds[1] + 1:inds[2]]
+    size_temp = bytes_list[inds[3] + 1:inds[4]]
     for s in size_temp:
          size += chr(s)
     size = int(size)
 
-    data = bytes_list[inds[2] +1:]
+    data = bytes_list[inds[5] +1:]
     data = bytes(data[:size//8])
     
     return filename, size, data
@@ -232,7 +225,7 @@ if __name__ == "__main__":
     print()
 
     if save == True:
-        ps.save_signal(signal,fs,f'test_signals/cat.wav')
+        ps.save_signal(signal,fs,f'test_signals/cat3.wav')
         #ps.save_signal(signal,fs,f'test_signals/test_signal_{c.standard}_{c.N}_{c.K}_{B0}_{B1}.wav')
     
     if play == True:

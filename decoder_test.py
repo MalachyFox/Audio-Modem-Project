@@ -120,9 +120,9 @@ chirp_length = block_length*chirp_factor
 used_bins_data = (c.K//2)*ldpc_factor
 B1 = B0+ used_bins
 ###
-record = True
-use_test_signal = False
-filename_="cat2.wav"
+record = False
+use_test_signal = True
+filename_="cat3.wav"
 
 
 def run(p):
@@ -197,7 +197,7 @@ def run(p):
         data = recording[start:end]
         if len(data) == 0:
             break
-        data_fft = np.fft.rfft(data)[:-1]
+        data_fft = np.fft.rfft(data)
         data_fft = data_fft[B0:B1]
         data_fft *= channel_inv
 
