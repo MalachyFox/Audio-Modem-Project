@@ -19,12 +19,12 @@ from py import ldpc
 fs = 48000
 block_length = 4096
 prefix_length = 512 
-N0 = 100
+N0 = 200
 #N1 = 850
 ###
 chirp_factor = 16
 tracking_bins = 0
-c = ldpc.code('802.16','3/4',81)
+c = ldpc.code('802.16','1/2',54)
 ldpc_factor = 1
 other_bins_factor = 1
 ###
@@ -33,8 +33,8 @@ chirp_length = block_length * chirp_factor
 used_bins_data = ( c.K // 2 ) * ldpc_factor
 N1 = N0+ used_bins
 ###
-play = True
-save = False
+play = False
+save = True
 
 
 
@@ -106,13 +106,15 @@ def blocks_fft_to_signal(blocks_fft,known_block_signal):
         transmission = np.concatenate((transmission,block_signal))
     # plt.plot(np.angle(block))
     # plt.show()
-    
+
+    transmission = np.concatenate((known_block_signal,transmission))
+    transmission = transmission / np.max(transmission)
     chirp = ps.gen_chirp(N0,N0 + used_bins,fs,chirp_length,block_length)
     chirp = np.concatenate((chirp[-prefix_length:],chirp))
-    chirp /= np.mean(np.absolute(chirp))
-    transmission = np.concatenate((chirp,known_block_signal,transmission))
+    chirp /= np.max(np.absolute(chirp))
+    transmission = np.concatenate((chirp,transmission))
     print("done")
-    transmission = transmission / np.max(transmission)
+    
     return transmission
 
 def generate_known_block(seed_=1):

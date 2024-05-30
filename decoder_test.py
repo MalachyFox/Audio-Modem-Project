@@ -1,7 +1,7 @@
 import sounddevice as sd
 import visualize
 import numpy as np
-import scipy
+import scipy.signal
 import playsound
 import matplotlib.pyplot as plt
 import decoder as d
@@ -107,11 +107,11 @@ def do_ldpc(data_fft,channel_inv,sigma2,pr=False):
 fs = 48000
 block_length = 4096 
 prefix_length = 512 
-N0 = 100
+N0 = 80
 ###
 recording_time = 14
 chirp_factor = 16
-c = ldpc.code('802.16','3/4',81)
+c = ldpc.code('802.16','1/2',54)
 ldpc_factor = 1
 ###
 used_bins = (c.N//2)*ldpc_factor
@@ -350,5 +350,7 @@ if __name__ == "__main__":
     #print(scipy.optimize.dual_annealing(run,([1,50],[0,1])).x)
 
     run(1)
+
+
 
 
