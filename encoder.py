@@ -19,17 +19,15 @@ B0 = 85
 #N1 = 850
 ###
 chirp_factor = 16
-tracking_bins = 0
 c = ldpc.code('802.16','1/2',54)
 ldpc_factor = 1
-other_bins_factor = 1
 ###
 used_bins = ( c.N// 2 ) * ldpc_factor
 chirp_length = block_length * chirp_factor
 used_bins_data = ( c.K // 2 ) * ldpc_factor
-B1 = B0+ used_bins
+B1 = B0 + used_bins
 ###
-play = True
+play = False
 save = True
 
 
@@ -79,7 +77,7 @@ def values_to_blocks(phases,known_block):
     for p in range(len(phases)//used_bins):
         block = phases[used_bins * p:used_bins*(1+p)]
         block = np.concatenate((np.ones(B0),block,np.ones(block_length//2 + 1 - B0 - used_bins)))
-        block *= known_block
+        block *= known_block/np.exp(1j*np.pi/4)
         blocks.append(block)
     print("done")
     return blocks
@@ -96,9 +94,10 @@ def blocks_fft_to_signal(blocks_fft,known_block_signal):
     transmission = np.concatenate((known_block_signal,transmission))
     transmission = transmission / np.max(transmission)
     chirp = ps.gen_chirp(B0,B0 + used_bins,fs,chirp_length,block_length)
-    chirp = np.concatenate((chirp[-prefix_length:],chirp))
+    chirp = np.concatenate((chirp[-prefix_length:],chirp,chirp[:prefix_length]))
 
     chirp /= np.max(np.absolute(chirp))
+    chirp*=0.1
     transmission = np.concatenate((chirp,transmission,chirp))
     transmission /= np.max(np.absolute(transmission))
     print("done")
@@ -143,7 +142,7 @@ def load_file(filename):
 def add_header(binary,filename):
     ### prepare header
     filesize = len(binary)
-    head = filename + "\0" + str(filesize) + "\0"
+    head = "\0" + filename + "\0" + str(filesize) + "\0"
     head = bytearray(head,"utf8")
     head_old = [f'{int(bin(byte)[2:]):08d}' for byte in head]
     head= []
@@ -181,18 +180,18 @@ def handle_header(binary):
     # header = bytes_list[indices[0] + 1: indices[1]]
     
     inds = np.where(bytes_list == 0)[0]
-    filename_temp = bytes_list[:inds[0]]
+    filename_temp = bytes_list[inds[0]:inds[1]]
     filename = ""
     for h in filename_temp:
          filename += chr(h)
 
     size = ""
-    size_temp = bytes_list[inds[0] + 1:inds[1]]
+    size_temp = bytes_list[inds[1] + 1:inds[2]]
     for s in size_temp:
          size += chr(s)
     size = int(size)
 
-    data = bytes_list[inds[1] +1:]
+    data = bytes_list[inds[2] +1:]
     data = bytes(data[:size//8])
     
     return filename, size, data
@@ -221,12 +220,8 @@ if __name__ == "__main__":
     print(f"block len: ",block_length)
     print(f"prefix len:",prefix_length)
     print(f"chirp len:  {chirp_factor} x {block_length}")
-    print(f"chirp frqs: {B0*fs/block_length}Hz -> {B1*fs/block_length}Hz")
+    print(f"chirp frqs: {(B0-20)*fs/block_length}Hz -> {(B1+20)*fs/block_length}Hz")
     print(f'LDPC:       {c.standard}, {c.K/c.N}, {c.z}')
-    print()
-    print(f'xor seed:         {2}')
-    print(f'known block seed: {1}')
-    print(f'across bins:      [1,2047] inclusive')
     #print(f'graycoding: zigzag-benson method')
     print()
     print(f"num blocks: {len(blocks_fft)} + 1 known block")
