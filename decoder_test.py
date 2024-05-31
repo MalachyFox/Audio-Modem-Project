@@ -42,8 +42,7 @@ def apply_poly_to_fft(data_fft,coefs,N0):
 def llhr(fft,channel_inv,sigma2_,power):
     yl = []
     for k in range(len(fft)):
-        co =  power*np.sqrt(2)*np.real((1/channel_inv[k])*(np.conj(1/channel_inv[k]))/(sigma2_))
-        #print(co)
+        co =  2*np.sqrt(2)*np.real((1/channel_inv[k])*(np.conj(1/channel_inv[k]))/(sigma2_))
         l1 = np.sqrt(2)*np.imag(fft[k])*co
         l2 = np.sqrt(2)*np.real(fft[k])*co
         yl.append(l1)
@@ -109,7 +108,7 @@ block_length = 4096
 prefix_length = 1024 
 B0 = 85
 ###
-recording_time = 30
+recording_time = 22
 chirp_factor = 16
 c = ldpc.code('802.16','1/2',54)
 ldpc_factor = 1
@@ -117,7 +116,7 @@ ldpc_factor = 1
 used_bins = (c.N//2)*ldpc_factor
 chirp_length = block_length*chirp_factor
 used_bins_data = (c.K//2)*ldpc_factor
-B1 = B0+ used_bins
+B1 = B0 + used_bins
 ###
 record = False
 use_test_signal = False
@@ -127,8 +126,8 @@ filename_="recording_51.wav"
 def run(p):
 
     ### sync function ###
-    sync_chirp = playsound.gen_chirp(B0,B0+used_bins,fs,chirp_length,block_length)
-    sync = np.concatenate((sync_chirp[-prefix_length:],sync_chirp,sync_chirp[:prefix_length]))
+    sync_chirp = playsound.gen_chirp(B0,B1,fs,chirp_length,block_length)
+    sync = np.concatenate((sync_chirp[-prefix_length:],sync_chirp,sync_chirp[:prefix_length]))*0.1
 
 
     ### start recording ###
@@ -146,7 +145,6 @@ def run(p):
             recording = playsound.load_signal(f'recordings/' + filename_)
         recording = recording.flatten()
     print("done")
-
     # plt.plot(recording)
     # plt.show()
 
@@ -167,14 +165,11 @@ def run(p):
     chirp = recording[position - len_sync_chirp -prefix_length : position-prefix_length]
     fft_chirp = get_fft_chirp(chirp)
     fft_sync_chirp = get_fft_chirp(sync_chirp)
+  
+    # visualize.plot_fft(fft_chirp,fs)
+    # visualize.plot_fft(fft_sync_chirp,fs)
 
-    fft_chirp = fft_chirp[B0:B1]
-    fft_chirp_norm = fft_chirp / np.sqrt(np.mean(np.absolute(fft_chirp)**2))
-
-    fft_sync_chirp = fft_sync_chirp[B0:B1]
-    fft_sync_chirp_norm = fft_sync_chirp/ np.sqrt(np.mean(np.absolute(fft_sync_chirp)**2))
-
-    channel = fft_chirp_norm/fft_sync_chirp_norm
+    channel = fft_chirp[B0:B1]/fft_sync_chirp[B0:B1]
 
     channel_inv = 1/channel
 
@@ -197,7 +192,7 @@ def run(p):
     known_block_t = known_block_t[prefix_length:]
     known_block_fft = known_block_fft[B0:B1]
     known_block_fft_norm = known_block_fft/ np.sqrt(np.mean(np.absolute(known_block_fft))**2)
-
+    sigmas = []
     blocks = []
     blocks_ideal = []
     block_index = 0
@@ -212,27 +207,35 @@ def run(p):
         if len(data) == 0:
             break
         data_fft = np.fft.rfft(data)
+        #print(np.mean(np.abs(data_fft)))
         data_fft = data_fft[B0:B1]
+        
         data_fft *= channel_inv
+        #print(np.mean(np.abs(data_fft)))
 
 
         ## normalise first block and find sigma.
         
         if block_index == 0:
+            #print(np.mean(np.abs(data_fft)))
+            #print(np.mean(np.abs(recording)))
             power = np.sqrt(np.mean(np.absolute(data_fft))**2)
-            print("\rpower:",power)
+            #print("\rpower:",power)
 
-            recording /= power *(1/2)
-            data_fft /= power *(np.sqrt(2)/2)
-            #channel_inv /= power*(np.sqrt(2)/2)
+            # recording /= power
+            # recording *= np.sqrt(2)**2
+            data_fft /= power 
+            data_fft *= np.sqrt(2)
+            channel_inv /= power
+            channel_inv*=np.sqrt(2)
 
         
             complex_noise =  data_fft/channel_inv - known_block_fft/channel_inv
             sigma2 =  np.mean(np.absolute(complex_noise)**2) # 0.5 represents 1/Amplitude**2 amp is sqrt2
-            channel_inv_adj = (known_block_fft/data_fft)**(1/2)
+            channel_inv_adj = (known_block_fft/data_fft)**(1)
             channel_inv *=channel_inv_adj
             
-        #print("\r",sigma2)
+        #print("\n",sigma2)
         ## do first ldpc
         if block_index != 0:
             
@@ -249,7 +252,7 @@ def run(p):
             
             
 
-        ## do linear shift
+            ## do linear shift
             
 
             inds = np.where(data_fft_ideal == 1 + 1j)[0]
@@ -257,18 +260,26 @@ def run(p):
             freqs = inds + B0
             coefs_new = np.polyfit(freqs,pilots,order - 1)
             angles = apply_poly_to_fft(data_fft,coefs_new,B0)
+
+            #print(np.mean(np.abs(channel_inv)))
             
-            complex_noise = known_block_fft/channel_inv - data_fft/channel_inv
+            complex_noise = data_fft_ideal/channel_inv - data_fft/channel_inv
             complex_noise_average = np.mean(np.absolute(complex_noise)**2)
             #print(complex_noise_average)
-            sigma2 = sigma2 + complex_noise_average
-            sigma2 /=2
+            sigma2 = complex_noise_average
+            #sigma2 /=2
+            
+            #sigmas.append(sigma2)
+            #sigma2 = np.mean(sigmas)
+            #plt.plot(sigma2*np.absolute(channel_inv)**2)
+            #plt.show()
             
             data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2,power,pr=True)
             channel_inv *= angles
             data_fft *= angles
             its = np.append(its,it)
-            channel_inv *= (data_fft_ideal/data_fft)**(1/8) # soft update / clustering
+
+            channel_inv *= (data_fft_ideal/data_fft)**(1/10) # soft update / clustering
 
             if np.sum(its[-fail_after:]) > 999:
                 break
@@ -359,8 +370,8 @@ def run(p):
     except:
         print("FAILED TO SAVE")
 
-    see = [int(a) for a in np.linspace(0,num_blocks - 1,5)]
-    
+    #see = [int(a) for a in np.linspace(0,num_blocks - 1,5)]
+    see = [0,1,2,3,4]
     plt.style.use('ggplot')
     visualize.big_plot([blocks[i] for i in see],fs,title="test",colours=np.array([colours[i*used_bins:(i+1)*used_bins] for i in see]).flatten())
     visualize.plot_constellation(np.array(blocks).flatten(),colours=colours)
@@ -370,9 +381,9 @@ def run(p):
 
     visualize.plot_channel(impulse)
 
-    plt.plot(error_list)
-    plt.ylim(0,20)
-    plt.show()
+    # plt.plot(error_list)
+    # plt.ylim(0,20)
+    # plt.show()
 
     plt.plot(recording)
     plt.show()

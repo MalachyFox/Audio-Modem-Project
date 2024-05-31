@@ -163,40 +163,40 @@ def handle_header(binary):
             byte_str += str(b)
         byte_str = "0b" + byte_str
         bytes_list.append(int(byte_str,0))
-    bytes_list = np.array(bytes_list,dtype=np.int8)
+    bytes_list = np.array(bytes_list,dtype=np.uint8)
 
-
-    # print(bytes_list[:20])
-    # inds = np.where(bytes_list == 0)[0]
-    # filename_temp = bytes_list[inds[1] + 1:inds[2]]
-    # filename = ""
-    # for h in filename_temp:
-    #      filename += chr(h)
-
-    # size = ""
-    # size_temp = bytes_list[inds[3] + 1:inds[4]]
-    # for s in size_temp:
-    #      size += chr(s)
-    # size = int(size)
-
-    # data = bytes_list[inds[5] +1:]
-    # data = bytes(data[:size//8])
 
     print(bytes_list[:20])
     inds = np.where(bytes_list == 0)[0]
-    filename_temp = bytes_list[inds[0] + 1:inds[1]]
+    filename_temp = bytes_list[inds[1] + 1:inds[2]]
     filename = ""
     for h in filename_temp:
          filename += chr(h)
 
     size = ""
-    size_temp = bytes_list[inds[1] + 1:inds[2]]
+    size_temp = bytes_list[inds[3] + 1:inds[4]]
     for s in size_temp:
          size += chr(s)
     size = int(size)
 
-    data = bytes_list[inds[3] +1:]
+    data = bytes_list[inds[5] +1:]
     data = bytes(data[:size//8])
+
+    # print(bytes_list[:20])
+    # inds = np.where(bytes_list == 0)[0]
+    # filename_temp = bytes_list[inds[0] + 1:inds[1]]
+    # filename = ""
+    # for h in filename_temp:
+    #      filename += chr(h)
+
+    # size = ""
+    # size_temp = bytes_list[inds[1] + 1:inds[2]]
+    # for s in size_temp:
+    #      size += chr(s)
+    # size = int(size)
+
+    # data = bytes_list[inds[3] +1:]
+    # data = bytes(data[:size//8])
 
 
     
@@ -206,7 +206,7 @@ def handle_header(binary):
 
 if __name__ == "__main__":
     
-    filename = 'moomoo.tif'
+    filename = 'milnmal.tif'
     binary = load_file(filename)
     binary = add_header(binary,filename)
     len_binary_data = len(binary)
@@ -238,7 +238,7 @@ if __name__ == "__main__":
     print()
 
     if save == True:
-        ps.save_signal(signal,fs,f'test_signals/cat_standard.wav')
+        ps.save_signal(signal,fs,f'test_signals/milnmal.wav')
         #ps.save_signal(signal,fs,f'test_signals/test_signal_{c.standard}_{c.N}_{c.K}_{B0}_{B1}.wav')
     
     if play == True:

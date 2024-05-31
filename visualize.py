@@ -13,13 +13,13 @@ def plot_channel(channel):
 def plot_fft(fft,fs,colours='b',title=""):
     freqs = np.fft.fftfreq(len(fft),1/fs)
     fig, ax = plt.subplots(2)
-    ax[0].title.set_text('Frequency Domain',fontname="serif")
+    ax[0].title.set_text('Frequency Domain')
     ax[0].set_xlabel('f / Hz')
-    ax[0].set_ylabel('Log10 Amplitude',fontname="serif")
+    ax[0].set_ylabel('Log10 Amplitude')
     ax[0].plot(freqs,np.log10(np.absolute(fft)))
     ax[1].scatter(freqs,np.angle(fft),s=4)
-    ax[1].set_xlabel("f / Hz",fontname="serif")
-    ax[1].set_ylabel('Phase / rad',fontname="serif")
+    ax[1].set_xlabel("f / Hz")
+    ax[1].set_ylabel('Phase / rad')
     if title != "":
         plt.savefig(f"test_figures/{title}-fft.png")
     plt.show()
@@ -59,7 +59,7 @@ def big_plot(blocks,fs,colours,title=""):
 
         x = list(range(len(fft)))
 
-        axs[1,i].scatter(x,np.angle(fft),s=8,alpha=1,c=col,yunits = radians)
+        axs[1,i].scatter(x,np.angle(fft),s=8,alpha=1,c=col)
         axs[1,i].set_xlabel(r"Information bin index",fontname="serif")
         axs[1,i].set_ylabel(r'Phase (rad)',fontname="serif")
 
