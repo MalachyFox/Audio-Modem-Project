@@ -164,9 +164,10 @@ def handle_header(binary):
         byte_str = "0b" + byte_str
         bytes_list.append(int(byte_str,0))
     bytes_list = np.array(bytes_list,dtype=np.uint8)
-
-
+    [print(chr(a),end='') for a in bytes_list[:40]]
+    print()
     print(bytes_list[:20])
+    #print(len(bytes_list)/1000)
     inds = np.where(bytes_list == 0)[0]
     filename_temp = bytes_list[inds[1] + 1:inds[2]]
     filename = ""
@@ -181,7 +182,7 @@ def handle_header(binary):
 
     data = bytes_list[inds[5] +1:]
     data = bytes(data[:size//8])
-
+    #print(len(data)/1000)
     # print(bytes_list[:20])
     # inds = np.where(bytes_list == 0)[0]
     # filename_temp = bytes_list[inds[0] + 1:inds[1]]
@@ -206,7 +207,7 @@ def handle_header(binary):
 
 if __name__ == "__main__":
     
-    filename = 'milnmal.tif'
+    filename = 'bot.gif'  # in sendable_files/
     binary = load_file(filename)
     binary = add_header(binary,filename)
     len_binary_data = len(binary)
@@ -214,7 +215,7 @@ if __name__ == "__main__":
     binary = encode_blocks(binary)
     values = binary_to_values(binary)
     known_block_signal, known_block_fft = generate_known_block()
-    blocks_fft = values_to_blocks(values,known_block_fft)
+    blocks_fft = values_to_blocks(values,known_block_fft*np.sqrt(2))
     signal = blocks_fft_to_signal(blocks_fft,known_block_signal)
 
 
@@ -228,17 +229,17 @@ if __name__ == "__main__":
     print(f"chirp len:  {chirp_factor} x {block_length}")
     print(f"chirp frqs: {(B0-20)*fs/block_length}Hz -> {(B1+20)*fs/block_length}Hz")
     print(f'LDPC:       {c.standard}, {c.K/c.N}, {c.z}')
-    #print(f'graycoding: zigzag-benson method')
     print()
     print(f"num blocks: {len(blocks_fft)} + 1 known block")
     print(f"time:       {str(len(signal)/fs)[:4]}s")
-    print(f"size:       {str(len_binary_data/(8*1000))[:4]}KB")
+    print(f"size:       {len(blocks_fft)*used_bins_data*2/8000:.8g}kB")
+    print(f"size:       {len_binary_data/(8*1000):.4g}kB")
     print(f"efficiency: {str(len_binary_data*2/(2*len(signal)))[:4]}")
     print(f"byte-rate:  {str(len_binary_data*fs/(8*1000*len(signal)))[:4]}kB/s")
     print()
 
     if save == True:
-        ps.save_signal(signal,fs,f'test_signals/milnmal.wav')
+        ps.save_signal(signal,fs,f'test_signals/{filename}.wav')
         #ps.save_signal(signal,fs,f'test_signals/test_signal_{c.standard}_{c.N}_{c.K}_{B0}_{B1}.wav')
     
     if play == True:

@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import decoder as d
 import encoder as e
 from py import ldpc
+import time
 #import librosa
 
 def get_fft_chirp(chirp,overlap = False):
@@ -42,7 +43,7 @@ def apply_poly_to_fft(data_fft,coefs,N0):
 def llhr(fft,channel_inv,sigma2_,power):
     yl = []
     for k in range(len(fft)):
-        co =  2*np.sqrt(2)*np.real((1/channel_inv[k])*(np.conj(1/channel_inv[k]))/(sigma2_))
+        co =  np.sqrt(2)*np.real((1/channel_inv[k])*(np.conj(1/channel_inv[k]))/(sigma2_))
         l1 = np.sqrt(2)*np.imag(fft[k])*co
         l2 = np.sqrt(2)*np.real(fft[k])*co
         yl.append(l1)
@@ -82,7 +83,7 @@ def blocks_to_binary(blocks_):
 
 def decode(binary):
     output = []
-    for i in range(used_bins*2//ldpc_factor):
+    for i in range(len(binary)//(used_bins*2)):
         chunk = binary[i*used_bins*2//ldpc_factor:(i+1)*used_bins*2//ldpc_factor]
         chunk = chunk[:2*used_bins_data//ldpc_factor]
         output.extend(chunk)
@@ -108,7 +109,7 @@ block_length = 4096
 prefix_length = 1024 
 B0 = 85
 ###
-recording_time = 22
+recording_time = 60*7 + 36 + 10
 chirp_factor = 16
 c = ldpc.code('802.16','1/2',54)
 ldpc_factor = 1
@@ -120,7 +121,7 @@ B1 = B0 + used_bins
 ###
 record = False
 use_test_signal = False
-filename_="recording_51.wav"
+filename_="bot.gif.wav"
 
 
 def run(p):
@@ -128,7 +129,6 @@ def run(p):
     ### sync function ###
     sync_chirp = playsound.gen_chirp(B0,B1,fs,chirp_length,block_length)
     sync = np.concatenate((sync_chirp[-prefix_length:],sync_chirp,sync_chirp[:prefix_length]))*0.1
-
 
     ### start recording ###
     print("recording...",end="",flush=True)
@@ -144,21 +144,23 @@ def run(p):
         else:
             recording = playsound.load_signal(f'recordings/' + filename_)
         recording = recording.flatten()
+
+    # print()
+    # for t in range(recording_time):
+    #     print(f'{t}s',end='\r')
+    #     time.sleep(1)
+
     print("done")
     # plt.plot(recording)
     # plt.show()
-
-    # recording = librosa.resample(recording,orig_sr=48000,target_sr = fs)
-    # recording += np.random.normal(0,0.04,len(recording))
+    #print(len(recording))
 
     ### find position ###
     print("synchronizing...",end="",flush=True)
     len_sync_chirp = len(sync_chirp)
-    correlation = scipy.signal.correlate(recording[:fs*10], sync) # checks first 10s
+    correlation = scipy.signal.correlate(recording[:fs*20], sync) # checks first 10s
     position = np.argmax(correlation) +1 # +1 moves slopes upwards CCW, seems to generally help?
     print("done")
-
-
 
     ### estimate channel ###
     print("estimating channel...",end="",flush=True)
@@ -227,9 +229,9 @@ def run(p):
             data_fft /= power 
             data_fft *= np.sqrt(2)
             channel_inv /= power
-            channel_inv*=np.sqrt(2)
+            channel_inv *= np.sqrt(2)
 
-        
+            data_fft_ideal = known_block_fft
             complex_noise =  data_fft/channel_inv - known_block_fft/channel_inv
             sigma2 =  np.mean(np.absolute(complex_noise)**2) # 0.5 represents 1/Amplitude**2 amp is sqrt2
             channel_inv_adj = (known_block_fft/data_fft)**(1)
@@ -260,6 +262,8 @@ def run(p):
             freqs = inds + B0
             coefs_new = np.polyfit(freqs,pilots,order - 1)
             angles = apply_poly_to_fft(data_fft,coefs_new,B0)
+            channel_inv *= angles
+            data_fft *= angles
 
             #print(np.mean(np.abs(channel_inv)))
             
@@ -275,17 +279,16 @@ def run(p):
             #plt.show()
             
             data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2,power,pr=True)
-            channel_inv *= angles
-            data_fft *= angles
+            
             its = np.append(its,it)
 
-            channel_inv *= (data_fft_ideal/data_fft)**(1/10) # soft update / clustering
+            channel_inv *= (data_fft_ideal/data_fft)**(1/12) # soft update / clustering
 
             if np.sum(its[-fail_after:]) > 999:
                 break
             
 
-        ## clean up
+            ## clean up
             blocks_ideal.append(data_fft_ideal)
             blocks.append(data_fft)
 
@@ -293,8 +296,8 @@ def run(p):
         end += group_length
         block_index += 1
     num_blocks = block_index - fail_after
-    blocks = blocks[:-fail_after + 1]
-    blocks_ideal = blocks_ideal[:-fail_after + 1]
+    #blocks = blocks[:-fail_after + 1]
+    #blocks_ideal = blocks_ideal[:-fail_after + 1]
     print("\ndone")
     print("iterations:",int(np.sum(its)))
 
@@ -302,6 +305,7 @@ def run(p):
     ### decode signal ###
     print("decoding...",end="",flush=True)
     r_bits = blocks_to_binary(blocks_ideal)
+    #print(len(r_bits)/8000)
     # filename = 'moomoo.tif'
     # t_bits = e.load_file(filename)
     # t_bits = e.add_header(t_bits,filename)
@@ -325,6 +329,7 @@ def run(p):
     # # ### compare signals ###
     #t_bits = decode(t_bits)
     r_bits = decode(r_bits)
+    #print(len(r_bits)/8000)
     
     # total_errors = 0
     # error_list = []
@@ -370,23 +375,23 @@ def run(p):
     except:
         print("FAILED TO SAVE")
 
-    #see = [int(a) for a in np.linspace(0,num_blocks - 1,5)]
-    see = [0,1,2,3,4]
+    see = [int(a) for a in np.linspace(0,num_blocks - 1 - fail_after,5)]
+    #see = [0,1,2,3,4]
     plt.style.use('ggplot')
     visualize.big_plot([blocks[i] for i in see],fs,title="test",colours=np.array([colours[i*used_bins:(i+1)*used_bins] for i in see]).flatten())
     visualize.plot_constellation(np.array(blocks).flatten(),colours=colours)
     
-    plt.plot(correlation)
-    plt.show()
+    #plt.plot(correlation)
+    #plt.show()
 
-    visualize.plot_channel(impulse)
+    #visualize.plot_channel(impulse)
 
     # plt.plot(error_list)
     # plt.ylim(0,20)
     # plt.show()
 
-    plt.plot(recording)
-    plt.show()
+    #plt.plot(recording)
+    #plt.show()
 
     return #total_errors
 
