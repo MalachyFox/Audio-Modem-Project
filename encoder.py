@@ -27,9 +27,10 @@ chirp_length = block_length * chirp_factor
 used_bins_data = ( c.K // 2 ) * ldpc_factor
 B1 = B0 + used_bins
 ###
-play = False
+play = True
 save = True
 
+num_known_block = 1
 
 
 def random_binary(N):
@@ -84,6 +85,7 @@ def values_to_blocks(phases,known_block):
 
 def blocks_fft_to_signal(blocks_fft,known_block_signal):
     print("ifft...",end="",flush=True)
+    
 
     transmission = np.array([])
     for block in blocks_fft:
@@ -91,6 +93,7 @@ def blocks_fft_to_signal(blocks_fft,known_block_signal):
         #block_signal /= np.sqrt(np.mean(np.absolute(block_signal)**2))
         block_signal = np.concatenate((block_signal[-prefix_length:],block_signal))
         transmission = np.concatenate((transmission,block_signal))
+    known_block_signal = np.tile(known_block_signal,num_known_block) ### REMOVE LINE FOR 1 KNOWN BLOCK
     transmission = np.concatenate((known_block_signal,transmission))
     transmission = transmission / np.max(transmission)
     chirp = ps.gen_chirp(B0,B0 + used_bins,fs,chirp_length,block_length)
@@ -178,6 +181,7 @@ def handle_header(binary):
     size_temp = bytes_list[inds[3] + 1:inds[4]]
     for s in size_temp:
          size += chr(s)
+    
     size = int(size)
 
     data = bytes_list[inds[5] +1:]
@@ -207,7 +211,7 @@ def handle_header(binary):
 
 if __name__ == "__main__":
     
-    filename = 'bot.gif'  # in sendable_files/
+    filename = 'hamlet.txt'  # in sendable_files/
     binary = load_file(filename)
     binary = add_header(binary,filename)
     len_binary_data = len(binary)
@@ -215,7 +219,7 @@ if __name__ == "__main__":
     binary = encode_blocks(binary)
     values = binary_to_values(binary)
     known_block_signal, known_block_fft = generate_known_block()
-    blocks_fft = values_to_blocks(values,known_block_fft*np.sqrt(2))
+    blocks_fft = values_to_blocks(values,known_block_fft)
     signal = blocks_fft_to_signal(blocks_fft,known_block_signal)
 
 
@@ -230,7 +234,7 @@ if __name__ == "__main__":
     print(f"chirp frqs: {(B0-20)*fs/block_length}Hz -> {(B1+20)*fs/block_length}Hz")
     print(f'LDPC:       {c.standard}, {c.K/c.N}, {c.z}')
     print()
-    print(f"num blocks: {len(blocks_fft)} + 1 known block")
+    print(f"num blocks: {len(blocks_fft)} + 5 known block2")
     print(f"time:       {str(len(signal)/fs)[:4]}s")
     print(f"size:       {len(blocks_fft)*used_bins_data*2/8000:.8g}kB")
     print(f"size:       {len_binary_data/(8*1000):.4g}kB")

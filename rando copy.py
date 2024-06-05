@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import encoder as e
 from py import ldpc
 import time
+import librosa
 
 def get_fft_chirp(chirp,overlap = False):
     fft_chirp = np.zeros(block_length,dtype=np.complex_)
@@ -38,14 +39,15 @@ def apply_poly_to_fft(data_fft,coefs,N0):
     #     data_fft[k] = data_fft[k] * angle
     return angles
 
-def llhr(fft,channel,sigma2_):
+def llhr(fft,channel_inv,sigma2_,power):
     yl = []
     for k in range(len(fft)):
-        co =  np.real((channel[k])*(np.conj(channel[k]))/(sigma2_))
+        co =  np.real((1/channel_inv[k])*(np.conj(1/channel_inv[k]))/(sigma2_))
         l1 = np.sqrt(2)*np.imag(fft[k])*co
         l2 = np.sqrt(2)*np.real(fft[k])*co
         yl.append(l1)
         yl.append(l2)
+    #print(yl[:4])
     return np.array(yl)
 
 def binary_to_values(binary):
@@ -86,9 +88,9 @@ def decode(binary):
         output.extend(chunk)
     return np.array(output)
 
-def do_ldpc(data_fft,channel,sigma2,pr=False):
+def do_ldpc(data_fft,channel_inv,sigma2,power,pr=False):
 
-    yl = llhr(data_fft,channel,sigma2)
+    yl = llhr(data_fft,channel_inv,sigma2,power)
     app = []
     for i in range(ldpc_factor):
         app_temp, it = c.decode(yl[i*c.N:(i+1)*c.N],'sumprod2')
@@ -106,7 +108,7 @@ block_length = 4096
 prefix_length = 1024 
 B0 = 85
 ###
-recording_time = 25
+recording_time = 60*7 + 36 + 10
 chirp_factor = 16
 c = ldpc.code('802.16','1/2',54)
 ldpc_factor = 1
@@ -118,14 +120,10 @@ B1 = B0 + used_bins
 ###
 record = False
 use_test_signal = True
-filename_="moomoo2.bmp.wav"
-
-num_known_block = 5
-
-start_offset = -10 ## -ve shifts into the cyclic prefix
+filename_="moomoo.bmp.wav"
 
 
-def run(p):
+def run(snr,factor,do_angle,do_channel):
 
     ### sync function ###
     sync_chirp = playsound.gen_chirp(B0,B1,fs,chirp_length,block_length)
@@ -150,6 +148,18 @@ def run(p):
     #     print(f'{t}s',end='\r')
     #     time.sleep(1)
 
+    signalP = np.mean(np.absolute(recording[200000:300000])**2)
+    #print(signalP)
+    SNR = 10**(snr/10)
+    #print(SNR)
+    noise_power = signalP/SNR
+    noise_sigma = np.sqrt(noise_power)
+
+    recording = librosa.resample(recording,orig_sr=48000,target_sr = 48000+1)
+
+    recording += np.random.normal(0,noise_sigma,len(recording))
+
+
     print("done")
     # plt.plot(recording)
     # plt.show()
@@ -158,7 +168,7 @@ def run(p):
     print("synchronizing...",end="",flush=True)
     len_sync_chirp = len(sync_chirp)
     correlation = scipy.signal.correlate(recording[:fs*20], sync) # checks first 10s
-    position = np.argmax(correlation) +1 # +1 moves slopes upwards CCW, seems to generally help?
+    position = np.argmax(correlation) + 1 # +1 moves slopes upwards CCW, seems to generally help?
     print("done")
 
     ### estimate channel ###
@@ -172,7 +182,7 @@ def run(p):
 
     channel = fft_chirp[B0:B1]/fft_sync_chirp[B0:B1]
 
-
+    channel_inv = 1/channel
 
     channel_i = np.concatenate((np.ones(B0),channel,np.ones(block_length//2 + 1 - B0 - used_bins)))
     impulse = np.fft.irfft(channel_i)
@@ -186,10 +196,11 @@ def run(p):
     sigma2 = 1
     
     group_length = prefix_length + block_length
-    start = position + prefix_length + start_offset
-    end = position + group_length + start_offset
+    start = position + prefix_length
+    end = position + group_length
 
     known_block_t, known_block_fft = e.generate_known_block()
+    known_block_t = known_block_t[prefix_length:]
     known_block_fft = known_block_fft[B0:B1]
     known_block_fft_norm = known_block_fft/ np.sqrt(np.mean(np.absolute(known_block_fft))**2)
     sigmas = []
@@ -200,8 +211,6 @@ def run(p):
     its = np.array([])
     power = 0
     fail_after = 5
-    
-
 
     while True:
         print(f"\rblock: {block_index:04d}",end="")
@@ -209,45 +218,30 @@ def run(p):
         if len(data) == 0:
             break
         data_fft = np.fft.rfft(data)
+        #power2 = np.mean(np.absolute(data_fft)**2)
         data_fft = data_fft[B0:B1]
         power2 = np.mean(np.absolute(data_fft)**2)
-        data_fft /= channel
-
+        #print('\n',power2)
+        data_fft *= channel_inv
         
-        if block_index < num_known_block:
+        if block_index == 0:
 
             power = np.sqrt(np.mean(np.absolute(data_fft))**2)
             data_fft /= power
-            channel *= power
+            channel_inv /= power
 
             data_fft_ideal = known_block_fft
-            complex_noise =  data_fft*channel - known_block_fft*channel
+            complex_noise =  data_fft/channel_inv - known_block_fft/channel_inv
             
             sigma2 =  0.5*np.mean(np.absolute(complex_noise)**2) # 0.5 represents 1/Amplitude**2 amp is sqrt2
-
-            channel = (data_fft*channel)/known_block_fft
-
-            if block_index == 0:
-                channel_estimates = channel
-            else:
-                channel_estimates = np.vstack((channel_estimates, channel))
-                channel = np.mean(channel_estimates,axis=0)
+            channel_inv_adj = (known_block_fft/data_fft)**(1)
+            channel_inv *=channel_inv_adj
         
-            #channel_inv_adj = (known_block_fft/data_fft)**(1)
-
-            # Y = data_fft/channel_inv
-            # X = known_block_fft
-            # lmbda = 0
-            # channel = (np.conj(X)*Y)/(X*np.conj(X)+lmbda)
-            # channel_inv = 1/channel
-
-            #channel_inv *=channel_inv_adj
-        
-        if block_index >= num_known_block:
+        if block_index != 0:
             #print('\n',power2/(2*sigma2))
             data_fft /= (known_block_fft_norm/np.exp(1j*np.pi/4))
 
-            data_fft_ideal, it = do_ldpc(data_fft,channel,sigma2)
+            data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2,power)
 
             ## do linear shift
             inds = np.where(np.angle(data_fft_ideal) == np.pi/4)[0]
@@ -255,37 +249,35 @@ def run(p):
             freqs = inds + B0
             coefs_new = np.polyfit(freqs,pilots,order - 1)
             angles = apply_poly_to_fft(data_fft,coefs_new,B0)
-            channel /= angles
-            data_fft *= angles
+            if do_angle:
+                channel_inv *= angles
+                data_fft *= angles
 
-            complex_noise =  data_fft*channel - data_fft_ideal*channel
-
+            complex_noise = data_fft_ideal/channel_inv - data_fft/channel_inv
             complex_noise_average = np.mean(np.absolute(complex_noise)**2)
             sigma2 = 0.5*complex_noise_average
             
-            data_fft_ideal, it = do_ldpc(data_fft,channel,sigma2,pr=True)
+            data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2,power,pr=True)
             
-            channel /= (data_fft_ideal/data_fft)**(1/10) # soft update / clustering
+            if do_channel:
+                channel_inv *= (data_fft_ideal/data_fft)**(1/factor) # soft update / clustering
 
             its = np.append(its,it)
-            
+            # if np.sum(its[-fail_after:]) >= 50*fail_after:
+            #     break
 
 
             ## clean up
             blocks_ideal.append(data_fft_ideal)
             blocks.append(data_fft)
 
-            if np.sum(its[-fail_after:]) >= 200*fail_after:
-                break
-
-        start += group_length 
-        end += group_length 
+        start += group_length
+        end += group_length
         block_index += 1
-
-    blocks = blocks[:-fail_after]
-    blocks_ideal = blocks_ideal[:-fail_after]
+        if block_index >= 206:
+            break
    
-    num_blocks = block_index - fail_after - num_known_block
+    num_blocks = block_index - fail_after
     print("\ndone")
     print("iterations:",int(np.sum(its)))
 
@@ -293,7 +285,7 @@ def run(p):
     ### decode signal ###
     print("decoding...",end="",flush=True)
     r_bits = blocks_to_binary(blocks_ideal)
-    filename = 'moomoo2.bmp'
+    filename = 'moomoo.bmp'
     t_bits = e.load_file(filename)
     t_bits = e.add_header(t_bits,filename)
     t_bits = e.correct_binary_length(t_bits)
@@ -319,15 +311,15 @@ def run(p):
     
     total_errors = 0
     error_list = []
-    for b in range(num_blocks):
+    for b in range(num_blocks - 1):
         r = r_bits[b*used_bins_data*2:(b+1)*used_bins_data*2]
         t = t_bits[b*used_bins_data*2:(b+1)*used_bins_data*2]
         count = sum(1 for a,b in zip(r,t) if a != b)
         errors = count / (used_bins_data*2)
         error_list.append(errors)
         total_errors += errors
-        if count !=0:
-            print(f"block {b:04d} {count:02d} errors")
+        #if count !=0:
+            #print(f"block {b:04d} {count:02d} errors")
         # view = 20
         # print(" rec:",r[:view],"...",r[-view:])
         # print("sent:",t[:view],"...",t[-view:],"\n")
@@ -353,35 +345,19 @@ def run(p):
     # im.save("haroan.png")
                 
     
-    filename, size, data = e.handle_header(r_bits)
-    print(filename,size,data[:20])
-    try:
-        with open("./received_files/" + filename,"wb") as output_file:
-            output_file.write(data)
-    except:
-        print("FAILED TO SAVE")
+    # filename, size, data = e.handle_header(r_bits)
+    # print(filename,size,data[:20])
+    # try:
+    #     with open("./received_files/" + filename,"wb") as output_file:
+    #         output_file.write(data)
+    # except:
+    #     print("FAILED TO SAVE")
 
     #see = [int(a) for a in np.linspace(0,num_blocks - 1 - fail_after,5)]
-    see = [100,101,102]
-    plt.style.use('ggplot')
-
-    # from sklearn.metrics import r2_score
-
-    # coefficient_of_dermination = r2_score(ni,nr)
-
-    # print(coefficient_of_dermination)
-    # plt.axes().set_aspect('equal')
-    # plt.ylim((-30,30))
-    # plt.xlim((-30,30))
-    # plt.scatter(nr,ni,s=2,marker='x')
-    # plt.xticks(fontname = 'serif', fontsize=15)
-    # plt.yticks(fontname = 'serif', fontsize=15)
-    # plt.xlabel('$N_r$', fontsize=20)
-    # plt.ylabel('$N_i$', fontsize=20)
-    # plt.show()
-    
-    #visualize.big_plot([blocks[i] for i in see],fs,title="test",colours=np.array([colours[i*used_bins:(i+1)*used_bins] for i in see]).flatten())
-    #visualize.plot_constellation(np.array(blocks).flatten(),colours=colours)
+    #see = [1,2,3,4]
+    # plt.style.use('ggplot')
+    # visualize.big_plot([blocks[i] for i in see],fs,title="test",colours=np.array([colours[i*used_bins:(i+1)*used_bins] for i in see]).flatten())
+    # visualize.plot_constellation(np.array(blocks).flatten(),colours=colours)
 
     
     #plt.plot(correlation)
@@ -389,28 +365,52 @@ def run(p):
 
     #visualize.plot_channel(impulse)
 
-    plt.plot(error_list)
-    plt.ylim(0,20)
-    plt.show()
+    # plt.plot(error_list)
+    # plt.ylim(0,20)
+    # plt.show()
 
     #plt.plot(recording)
     #plt.show()
 
-    return #total_errors
+    return total_errors
+
+
 
 
 if __name__ == "__main__":
-    # results = []
-    # samples = list(range(50,250,10))
-    # for var in samples:
-    #     results.append(run(var))
-    # plt.plot(samples,results)
-    # plt.xlabel('clumping factor')
-    # plt.ylabel(r'% errors')
-    # plt.show()
-    #print(scipy.optimize.dual_annealing(run,([1,50],[0,1])).x)
+    #run(4,10,True,True)
+    plt.style.use('ggplot')
+    plt.rcParams["font.family"] = "serif"
+    plt.yscale('log')
+    results = []
+    samples = np.linspace(2,6,41,endpoint=True)
+    for var in samples:
+        print(var)
+        results.append(run(var,10,True,True))
+    print(samples)
+    print(results)
+    plt.plot(samples,results,linestyle='dashdot',lw=3,c='red')
 
-    run(1)
+    results = []
+    for var in samples:
+        print(var)
+        results.append(run(var,10,True,False))
+    print(samples)
+    print(results)
+    plt.plot(samples,results,linestyle='dotted',lw=3,c='dimgray')
+
+   
+    #plt.ylim(0,1)
+    plt.legend(['Linear phase compensation and channel estimate update',
+                'Linear phase compensation'],fontsize=15,loc='upper center')
+    y1,y2 = plt.ylim()
+    plt.ylim(y1,y2*10)
+    
+    plt.xlabel('SNR (dB)',fontsize=20)
+    plt.ylabel(r'Bit error rate',fontsize=20)
+    plt.savefig('test2')
+    plt.show()
+    #print(scipy.optimize.dual_annealing(run,([1,50],[0,1])).x)
 
 
 

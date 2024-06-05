@@ -4,10 +4,9 @@ import numpy as np
 import scipy.signal
 import playsound
 import matplotlib.pyplot as plt
-import decoder as d
 import encoder as e
 from py import ldpc
-#import librosa
+import librosa
 
 def get_fft_chirp(chirp,overlap = False):
     fft_chirp = np.zeros(block_length,dtype=np.complex_)
@@ -119,8 +118,8 @@ used_bins_data = (c.K//2)*ldpc_factor
 B1 = B0 + used_bins
 ###
 record = False
-use_test_signal = True
-filename_="bot.gif.wav"
+use_test_signal = False
+filename_="cat_standard.wav"
 
 
 def run(p):
@@ -149,7 +148,7 @@ def run(p):
     # plt.plot(recording)
     # plt.show()
 
-    # recording = librosa.resample(recording,orig_sr=48000,target_sr = fs)
+    # recording = librosa.resample(recording,orig_sr=48000,target_sr = 48004)
     # recording += np.random.normal(0,0.04,len(recording))
 
     ### find position ###
@@ -201,6 +200,8 @@ def run(p):
     its = np.array([])
     power = 0
     fail_after = 5
+    sigma_real = []
+    sigma_imag = []
 
     while True:
         print(f"\rblock: {block_index:04d}",end="")
@@ -241,14 +242,10 @@ def run(p):
         if block_index != 0:
             
 
-            # power = np.sqrt(np.mean(np.absolute(data_fft))**2)
-            # data_fft /= power*(np.sqrt(2)/2)
-            # channel_inv /= power*(np.sqrt(2)/2)
-
             data_fft /= (known_block_fft_norm/np.exp(1j*np.pi/4))
 
             
-
+            ## do first ldpc
             data_fft_ideal, it = do_ldpc(data_fft,channel_inv,sigma2,power)
             
             
@@ -266,6 +263,9 @@ def run(p):
             
             complex_noise = data_fft_ideal/channel_inv - data_fft/channel_inv
             complex_noise_average = np.mean(np.absolute(complex_noise)**2)
+            sigma_real.append(np.mean(np.real(complex_noise)**2))
+            sigma_imag.append(np.mean(np.imag(complex_noise)**2))
+
             #print(complex_noise_average)
             sigma2 = complex_noise_average
             #sigma2 /=2
@@ -282,7 +282,7 @@ def run(p):
 
             channel_inv *= (data_fft_ideal/data_fft)**(1/10) # soft update / clustering
 
-            if np.sum(its[-fail_after:]) > 999:
+            if np.sum(its[-fail_after:]) > 200*fail_after - 1:
                 break
             
 
@@ -294,6 +294,31 @@ def run(p):
         end += group_length
         block_index += 1
     num_blocks = block_index - fail_after
+
+
+    nr = np.sqrt(sigma_real)
+    ni = np.sqrt(sigma_imag)
+
+    A = np.vstack([nr]).T
+    m= np.linalg.lstsq(A, ni, rcond=None)[0]
+    c=0
+
+
+    #m,c = np.polyfit(np.sqrt(sigma_real),np.sqrt(sigma_imag),1)
+    plt.style.use('ggplot')
+    plt.axes().set_aspect('equal')
+    plt.xlabel('$N_r$')
+    plt.ylabel('$N_i$')
+    plt.ylim((2.5,3.5))
+    plt.xlim((2.5,3.5))
+    plt.xticks(fontname = 'serif', fontsize=15)
+    plt.yticks(fontname = 'serif', fontsize=15)
+    x=np.linspace(0,70,100)
+    plt.plot(x,x)
+    plt.plot(x,m*x+c,c='black',linestyle='--')
+    plt.scatter(np.sqrt(sigma_real),np.sqrt(sigma_imag),s=20,marker='x',c='black',zorder=10)
+    plt.legend(["Ideal,  $N_i = N_r$",f"Actual $N_i = {m[0]:.2f}N_r$"])
+    plt.show()
     #blocks = blocks[:-fail_after + 1]
     #blocks_ideal = blocks_ideal[:-fail_after + 1]
     print("\ndone")
@@ -303,17 +328,17 @@ def run(p):
     ### decode signal ###
     print("decoding...",end="",flush=True)
     r_bits = blocks_to_binary(blocks_ideal)
-    # filename = 'moomoo.tif'
-    # t_bits = e.load_file(filename)
-    # t_bits = e.add_header(t_bits,filename)
-    # t_bits = e.correct_binary_length(t_bits)
-    # t_bits = e.encode_blocks(t_bits)
+    filename = 'moomoo.tif'
+    t_bits = e.load_file(filename)
+    t_bits = e.add_header(t_bits,filename)
+    t_bits = e.correct_binary_length(t_bits)
+    t_bits = e.encode_blocks(t_bits)
     print("done")
 
     ### add colours ###    
     colours = []
     for i in range(len(r_bits)//2):
-        bit = list(r_bits[i*2:(i+1)*2])  # r_bits for guessed colours, t_bits for known colours
+        bit = list(t_bits[i*2:(i+1)*2])  # r_bits for guessed colours, t_bits for known colours
         if (bit == [0,0]):
             colours.append("r")
         elif (bit == [0,1]):
@@ -371,12 +396,12 @@ def run(p):
     except:
         print("FAILED TO SAVE")
 
-    see = [int(a) for a in np.linspace(0,num_blocks - 1 - fail_after,5)]
-    #see = [0,1,2,3,4]
-    plt.style.use('ggplot')
+    #see = [int(a) for a in np.linspace(0,num_blocks - 1 - fail_after,3)]
+    see = [0,1,2]
+
     visualize.big_plot([blocks[i] for i in see],fs,title="test",colours=np.array([colours[i*used_bins:(i+1)*used_bins] for i in see]).flatten())
     visualize.plot_constellation(np.array(blocks).flatten(),colours=colours)
-    
+
     plt.plot(correlation)
     plt.show()
 
